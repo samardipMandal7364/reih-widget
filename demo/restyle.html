@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Property Listing — Restyle Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f7; color: #1a1a2e; }
+
+    .site-header {
+      background: #003DA5;
+      color: #fff;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .site-header .logo {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .site-header nav a {
+      color: rgba(255,255,255,0.85);
+      text-decoration: none;
+      margin-left: 24px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .site-header nav a:hover { color: #fff; }
+
+    .breadcrumb {
+      padding: 12px 32px;
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+      color: #666;
+    }
+    .breadcrumb a { color: #003DA5; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .breadcrumb span { margin: 0 6px; color: #ccc; }
+
+    .listing-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px;
+    }
+
+    .listing-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 32px;
+    }
+
+    .listing-gallery {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+    }
+    .listing-gallery img {
+      width: 100%;
+      height: 420px;
+      object-fit: cover;
+      display: block;
+      background: #e8e8ee;
+    }
+    .listing-gallery-img:not([src]),
+    .listing-gallery-img[src=""] {
+      min-height: 420px;
+    }
+    .gallery-badge {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .gallery-restyle {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+    }
+
+    .listing-details {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .listing-price {
+      font-size: 28px;
+      font-weight: 700;
+      color: #003DA5;
+    }
+    .listing-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+    .listing-address {
+      font-size: 14px;
+      color: #666;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .listing-features {
+      display: flex;
+      gap: 24px;
+      padding: 16px 0;
+      border-top: 1px solid #eee;
+      border-bottom: 1px solid #eee;
+    }
+    .feature-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .feature-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+    .feature-label {
+      font-size: 12px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .listing-description {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #444;
+    }
+    .listing-description h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #1a1a2e;
+    }
+
+    .agent-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .agent-card h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+    .agent-card p {
+      font-size: 13px;
+      color: #666;
+    }
+    .agent-card .btn-contact {
+      padding: 12px 20px;
+      background: #003DA5;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .agent-card .btn-contact:hover {
+      background: #002d7a;
+    }
+
+    .restyle-cta-section {
+      margin-top: 32px;
+      padding: 24px;
+      background: linear-gradient(135deg, #f0efff 0%, #e8f4ff 100%);
+      border-radius: 12px;
+      border: 1px solid #e0dfff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .restyle-cta-section .cta-text h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 4px;
+    }
+    .restyle-cta-section .cta-text p {
+      font-size: 14px;
+      color: #666;
+    }
+
+    @media (max-width: 768px) {
+      .listing-grid { grid-template-columns: 1fr; }
+      .listing-container { padding: 16px; }
+      .restyle-cta-section { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Simulated property listing site header -->
+  <header class="site-header">
+    <div class="logo">PropertyPortal</div>
+    <nav>
+      <a href="#">Buy</a>
+      <a href="#">Rent</a>
+      <a href="#">Sell</a>
+      <a href="#">Agents</a>
+    </nav>
+  </header>
+
+  <div class="breadcrumb">
+    <a href="#">Home</a><span>›</span>
+    <a href="#">Western Cape</a><span>›</span>
+    <a href="#">Milnerton</a><span>›</span>
+    Burgundy Estate
+  </div>
+
+  <div class="listing-container">
+    <div class="listing-grid">
+      <!-- Gallery -->
+      <div>
+        <div class="listing-gallery">
+          <img id="listing-media-img" src="" alt="Property interior" class="listing-gallery-img" />
+          <div class="gallery-badge">12 Photos</div>
+          <!-- The restyle button is injected here by the SDK -->
+          <div class="gallery-restyle" id="restyle-mount"></div>
+        </div>
+
+        <!-- Additional CTA below gallery -->
+        <div class="restyle-cta-section">
+          <div class="cta-text">
+            <h3>Reimagine this space with AI</h3>
+            <p>See how this room could look with different styles — modern, Scandinavian, minimalist, and more.</p>
+          </div>
+          <button id="restyle-cta-btn" style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            background: #6C63FF;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 2px 12px rgba(108,99,255,0.3);
+          ">
+            ✨ Restyle This Room
+          </button>
+        </div>
+      </div>
+
+      <!-- Listing Details -->
+      <div class="listing-details">
+        <div class="listing-price">R 1,395,000</div>
+        <h1 class="listing-title">2 Bedroom Apartment / Flat For Sale in Burgundy Estate</h1>
+        <div class="listing-address">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#666"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          12 Vinho Tinto, 7 Burgundy Street, Burgundy Estate, Milnerton
+        </div>
+
+        <div class="listing-features">
+          <div class="feature-item">
+            <span class="feature-value">2</span>
+            <span class="feature-label">Bedrooms</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-value">1</span>
+            <span class="feature-label">Bathrooms</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-value">85</span>
+            <span class="feature-label">m² Floor</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-value">1</span>
+            <span class="feature-label">Garage</span>
+          </div>
+        </div>
+
+        <div class="listing-description">
+          <h3>Description</h3>
+          <p>
+            Fully Renovated Apartment with Private Garage — Turnkey Living.
+            This is where modern renovation meets practical luxury.
+            Offering impeccable, move-in ready finishes with the added benefit of a private 18sqm garage.
+          </p>
+          <br/>
+          <p>
+            • Fully renovated throughout<br/>
+            • 2 Bedrooms | 1 Bathroom<br/>
+            • Brand new kitchen appliances (oven, hob & extractor)<br/>
+            • New cupboards, flooring & lighting<br/>
+            • Private 18sqm garage (rare feature)
+          </p>
+        </div>
+
+        <div class="agent-card">
+          <h4>RE/MAX Property Centre</h4>
+          <p>Full Status Property Practitioner</p>
+          <button class="btn-contact">Contact Agent</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load environment config (copy env.example.js to env.js with real values) -->
+  <script src="env.js"></script>
+
+  <!-- Widget Configuration: Restyle Mode with Bearer Token -->
+  <script>
+    var env = window.__REIH_ENV__ || {};
+    window.reihWidgetConfig = {
+      mode: 'restyle',
+      clientId: env.clientId,
+      bearerToken: env.bearerToken,
+      mediaId: env.mediaId,
+      apiBaseUrl: env.apiBaseUrl,
+      apiBaseUrlV2: env.apiBaseUrlV2,
+      wsBaseUrl: env.wsBaseUrl,
+      apiVersion: env.apiVersion || 'v3',
+      solutionName: env.solutionName,
+      designTheme: env.designTheme,
+      designingFor: env.designingFor,
+      primaryColor: '#6C63FF',
+      title: 'REimagineHome',
+      welcomeTitle: 'Restyle This Space',
+      welcomeDescription: 'Describe how you\'d like to reimagine this room. Try "Make it modern minimalist" or "Add warm Scandinavian touches".',
+      placeholder: 'Describe your ideal room style...',
+      triggerLabel: 'Restyle with AI',
+      hideTrigger: true,
+    };
+  </script>
+
+  <!-- Load Widget -->
+  <script src="/dist/reih-widget.js"></script>
+
+  <script>
+    window.addEventListener('reihwidget:media-loaded', function (e) {
+      var img = document.getElementById('listing-media-img');
+      if (img && e.detail && e.detail.url) {
+        img.src = e.detail.url;
+        img.alt = 'Property photo';
+      }
+    });
+
+    document.getElementById('restyle-cta-btn').addEventListener('click', function () {
+      window.reihWidget.open();
+    });
+  </script>
+</body>
+</html>
