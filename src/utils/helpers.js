@@ -124,6 +124,10 @@ export function mergeGenerationOutputsFromWs(messages, genData) {
 
   const next = [...messages];
 
+  const originalUrl =
+    genData.url || genData.input_url || genData.original_url ||
+    genData.source_url || genData.input_image_url || genData.media_url || '';
+
   outputs.forEach((output) => {
     if (!output?.preview_url) return;
 
@@ -139,6 +143,9 @@ export function mergeGenerationOutputsFromWs(messages, genData) {
       generation_output_id: output._id,
       preview_url: output.preview_url,
       action_name: output.action_name || 'Generated',
+      ...(originalUrl && { original_url: originalUrl }),
+      ...(output.original_url && { original_url: output.original_url }),
+      ...(output.input_url && { original_url: output.input_url }),
       ...(output.shopping_list && { shopping_list: output.shopping_list }),
       ...(output.shopping_list_id && { shopping_list_id: output.shopping_list_id }),
       ...(genData.smart_reply && { smart_reply: genData.smart_reply }),
@@ -182,12 +189,45 @@ export function getQuickOptionsForMessage(msg) {
 /** Resolve display URL from v2/v3 media API response */
 export function extractMediaImageUrl(media) {
   if (!media) return '';
-  return (
+
+  const direct =
     media.url ||
     media.image_url ||
     media.original_url ||
     media.preview_url ||
+    media.input_url ||
+    media.source_url ||
+    media.signed_url ||
+    media.input_image_url ||
+    media.original_image_url ||
+    media.media_url ||
+    media.thumbnail_url ||
+    media.photo_url ||
+    media.src ||
+    media.image;
+
+  if (direct && typeof direct === 'string') return direct;
+
+  const nested =
     media.metadata?.url ||
-    ''
-  );
+    media.metadata?.image_url ||
+    media.metadata?.original_url ||
+    media.original?.url ||
+    media.input?.url;
+
+  if (nested && typeof nested === 'string') return nested;
+
+  if (Array.isArray(media.images) && media.images[0]) {
+    const img = media.images[0];
+    const u = typeof img === 'string' ? img : img.url || img.src || img.image_url;
+    if (u) return u;
+  }
+
+  for (const val of Object.values(media)) {
+    if (typeof val === 'string' && /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif|svg)/i.test(val)) {
+      return val;
+    }
+  }
+
+  return '';
 }

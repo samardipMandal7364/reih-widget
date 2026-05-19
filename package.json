@@ -1,6 +1,6 @@
 {
   "name": "@samardipmandal7364/widget-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ReimaginHome embeddable chat widget SDK",
   "main": "dist/reih-widget.js",
   "module": "dist/reih-widget.esms.js",

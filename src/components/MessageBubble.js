@@ -1,5 +1,6 @@
 import { h } from 'preact';
 import { GeneratingCard } from './GeneratingCard';
+import { CompareSlider } from './CompareSlider';
 import {
   parseMarkdown,
   sanitizeHtml,
@@ -31,13 +32,21 @@ export function MessageBubble({ message, onSmartReply, previewImageUrl }) {
   }
 
   if (content?.type === 'generation_output' && content.preview_url) {
+    const beforeUrl = previewImageUrl || content.original_url || content.input_url || '';
     return (
       h('div', { class: 'reih-generation reih-generation--card' },
-        h('img', {
-          src: content.preview_url,
-          alt: content.action_name || 'Generated image',
-          loading: 'lazy',
-        }),
+        beforeUrl
+          ? h(CompareSlider, {
+              beforeSrc: beforeUrl,
+              afterSrc: content.preview_url,
+              beforeLabel: 'Original',
+              afterLabel: 'Reimagined',
+            })
+          : h('img', {
+              src: content.preview_url,
+              alt: content.action_name || 'Generated image',
+              loading: 'lazy',
+            }),
         content.action_name &&
           h('div', { class: 'reih-generation-label' }, content.action_name)
       )

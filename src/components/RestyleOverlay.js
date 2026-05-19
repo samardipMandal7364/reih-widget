@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { ChatInput } from './ChatInput';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
+import { CompareSlider } from './CompareSlider';
 import {
   isVisibleChatMessage,
   mergeGenerationOutputsFromWs,
@@ -32,12 +33,19 @@ export function RestyleOverlay({
   const [activeTab, setActiveTab] = useState('chat');
   const [generatedImages, setGeneratedImages] = useState([]);
   const [selectedGeneration, setSelectedGeneration] = useState(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState('');
   const messagesEndRef = useRef(null);
   const fallbackTimerRef = useRef(null);
   const fallbackPollRef = useRef(null);
   const fallbackCountRef = useRef(0);
   const awaitingResponseRef = useRef(false);
   const lastKnownMsgIdRef = useRef(null);
+
+  useEffect(() => {
+    if (mediaImageUrl && !originalImageUrl) {
+      setOriginalImageUrl(mediaImageUrl);
+    }
+  }, [mediaImageUrl]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -106,6 +114,14 @@ export function RestyleOverlay({
         _cancelFallback();
         awaitingResponseRef.current = false;
         setIsTyping(false);
+
+        const genOriginal = genData?.url || genData?.input_url ||
+          genData?.original_url || genData?.source_url ||
+          genData?.input_image_url || genData?.media_url || '';
+        if (genOriginal) {
+          setOriginalImageUrl((prev) => prev || genOriginal);
+        }
+
         setMessages((prev) => {
           const merged = mergeGenerationOutputsFromWs(prev, genData);
           const gens = collectGenerationOutputMessages(merged);
@@ -215,6 +231,13 @@ export function RestyleOverlay({
         if (gens.length > 0) {
           setGeneratedImages(gens);
           setSelectedGeneration(gens[gens.length - 1]);
+
+          if (!originalImageUrl) {
+            for (const g of gens) {
+              const oUrl = g.content?.original_url || g.content?.input_url;
+              if (oUrl) { setOriginalImageUrl(oUrl); break; }
+            }
+          }
         }
 
         const hasAnalyzing = incoming.some(
@@ -365,6 +388,7 @@ export function RestyleOverlay({
 
   if (!isOpen) return null;
 
+  const beforeImageUrl = originalImageUrl || mediaImageUrl;
   const displayImage = selectedGeneration?.content?.preview_url || mediaImageUrl;
 
   return (
@@ -406,6 +430,13 @@ export function RestyleOverlay({
                   h('div', { class: 'reih-spinner' }),
                   h('p', null, 'Loading image...')
                 )
+              : selectedGeneration?.content?.preview_url && beforeImageUrl
+              ? h(CompareSlider, {
+                  beforeSrc: beforeImageUrl,
+                  afterSrc: selectedGeneration.content.preview_url,
+                  beforeLabel: 'Original',
+                  afterLabel: 'Reimagined',
+                })
               : displayImage
               ? h('img', {
                   src: displayImage,
