@@ -9,6 +9,7 @@ import { createWidgetWebSocket } from './utils/websocket';
 import { saveSession, loadSession, clearSession, touchSession } from './utils/session';
 import { getDomainFromUrl, extractMediaImageUrl } from './utils/helpers';
 import widgetCSS from './styles/widget.css';
+import mediaChatCSS from './v3/media-chat.css';
 
 function TriggerButton({ onClick, isOpen, primaryColor, icon, position }) {
   const posStyle = position === 'bottom-left'
@@ -266,7 +267,8 @@ const DEFAULTS = {
   subtitle: 'AI Design Assistant',
   welcomeTitle: 'Welcome!',
   welcomeDescription: 'Upload an image and chat with our AI to reimagine your space.',
-  placeholder: 'Tell us what to change...',
+  chatTitle: 'Design Companion',
+  placeholder: 'Tell us what to change…',
   position: 'bottom-right',
   hideTrigger: false,
   autoOpen: false,
@@ -328,7 +330,7 @@ class ReihWidgetSDK {
     this._shadowRoot = this._host.attachShadow({ mode: 'closed' });
 
     const styleEl = document.createElement('style');
-    styleEl.textContent = widgetCSS;
+    styleEl.textContent = widgetCSS + '\n' + mediaChatCSS;
     this._shadowRoot.appendChild(styleEl);
 
     this._applyCSSVars();
@@ -394,6 +396,7 @@ class ReihWidgetSDK {
     const host = this._shadowRoot.host;
     if (this._config.primaryColor) {
       host.style.setProperty('--reih-primary', this._config.primaryColor);
+      host.style.setProperty('--tenant-primary', this._config.primaryColor);
     }
     if (this._config.position === 'bottom-left') {
       host.style.setProperty('--reih-panel-right', 'auto');

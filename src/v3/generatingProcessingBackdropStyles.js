@@ -1,0 +1,110 @@
+const backdropBlur = {
+  backdropFilter: "blur(16px) saturate(1.4)",
+  WebkitBackdropFilter: "blur(16px) saturate(1.4)",
+};
+
+const backdropDotGrid = {
+  backgroundImage:
+    "radial-gradient(circle, rgba(255, 255, 255, 0.22) 1px, transparent 1px)",
+  backgroundSize: "20px 20px",
+  backgroundRepeat: "repeat",
+};
+
+export const styles = {
+  processingCardContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    width: { xs: 150, lg: 180 },
+    height: { xs: 86, lg: 96 },
+    backgroundColor: "#F5F5F5",
+    borderRadius: "4px !important",
+    gap: "12px",
+  },
+  processingCardWithImageRoot: {
+    position: "relative",
+    width: { xs: 150, lg: 180 },
+    height: { xs: 86, lg: 96 },
+    borderRadius: "4px !important",
+    overflow: "hidden",
+    backgroundColor: "#F5F5F5",
+    boxShadow: "0px 2px 4px 0px #00000040",
+  },
+  processingCardImage: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center",
+    display: "block",
+  },
+  processingBackdrop: (radialOnly = false) => ({
+    position: "absolute",
+    inset: 0,
+    zIndex: 1,
+    borderRadius: "4px",
+    ...backdropBlur,
+    ...(radialOnly && backdropDotGrid),
+    backgroundColor: "rgba(255, 255, 255, 0.32)",
+  }),
+  processingLoaderLayer: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  processingLoaderStack: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "12px",
+    maxWidth: "100%",
+    px: 1,
+  },
+  processingLoaderWrapper: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  processingTitleStandalone: {
+    fontSize: "12px",
+    fontWeight: 500,
+    lineHeight: 1.3,
+    textAlign: "center",
+    color: "rgba(0, 0, 0, 0.62)",
+    maxWidth: "100%",
+  },
+  processingTitleOverlay: {
+    fontSize: "12px",
+    fontWeight: 500,
+    lineHeight: 1.3,
+    textAlign: "center",
+    color: "rgba(255, 255, 255, 0.96)",
+    textShadow: "0 1px 2px rgba(0, 0, 0, 0.35)",
+    maxWidth: "100%",
+  },
+  processingLoader: {
+    width: "24px",
+    height: "24px",
+    filter: "brightness(0) invert(1)",
+  },
+  backdropLottieWrap: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    width: "min(56vw, 300px)",
+    maxWidth: "100%",
+    height: { xs: "72px", sm: "96px" },
+    "& > div": {
+      width: "100%",
+      maxWidth: "120px",
+      filter: "brightness(0) invert(1)",
+    },
+  },
+};

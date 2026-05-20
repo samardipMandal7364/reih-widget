@@ -1,19 +1,53 @@
+/**
+ * V3 restyle UI — structure and components ported from MediaChatModal/
+ * (DesignPanelLeft + DesignPanelRight + ChatType message renderers).
+ */
 import { h } from 'preact';
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
-import { ChatInput } from './ChatInput';
-import { MessageBubble } from './MessageBubble';
-import { TypingIndicator } from './TypingIndicator';
-import { CompareSlider } from './CompareSlider';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
+import { DesignPanelLeft } from '../v3/panels/DesignPanelLeft';
+import { DesignPanelRight } from '../v3/panels/DesignPanelRight';
 import {
   isVisibleChatMessage,
   mergeGenerationOutputsFromWs,
   collectGenerationOutputMessages,
   hasActiveGeneratingCard,
+  isActiveCallToolMessage,
 } from '../utils/helpers';
+import { buildMediaDetail } from '../v3/utils';
 
 const RESPONSE_DELAY_THRESHOLD = 10000;
 const MAX_FALLBACK_POLLS = 8;
 const FALLBACK_POLL_INTERVAL = 10000;
+
+function getThoughtsFromMessages(messages) {
+  const thought = [...messages]
+    .reverse()
+    .find((m) => m.content?.type === 'thoughts' && m.content?.thoughts);
+  return thought?.content?.thoughts || '';
+}
+
+function filterChatList(messages) {
+  let lastActiveCallIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (
+      messages[i]?.content?.type === 'call_tool' &&
+      isActiveCallToolMessage(messages[i], messages)
+    ) {
+      lastActiveCallIdx = i;
+      break;
+    }
+  }
+  return messages.filter((m, idx) => {
+    if (m.content?.type === 'thoughts') {
+      if (!m.content?.thoughts?.trim()) return false;
+      if (lastActiveCallIdx >= 0 && idx > lastActiveCallIdx) {
+        return false;
+      }
+      return true;
+    }
+    return isVisibleChatMessage(m, messages);
+  });
+}
 
 export function RestyleOverlay({
   isOpen,
@@ -30,11 +64,12 @@ export function RestyleOverlay({
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('chat');
-  const [generatedImages, setGeneratedImages] = useState([]);
-  const [selectedGeneration, setSelectedGeneration] = useState(null);
+  const [userInputText, setUserInputText] = useState('');
+  const [selectedGenerationOutputId, setSelectedGenerationOutputId] = useState(null);
   const [originalImageUrl, setOriginalImageUrl] = useState('');
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const messagesEndRef = useRef(null);
+  const scrollAreaRef = useRef(null);
   const fallbackTimerRef = useRef(null);
   const fallbackPollRef = useRef(null);
   const fallbackCountRef = useRef(0);
@@ -52,6 +87,28 @@ export function RestyleOverlay({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 50);
   }, []);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollButton(distanceFromBottom > 50);
+  }, []);
+
+  const syncGenerationsFromMessages = useCallback((incoming) => {
+    const gens = collectGenerationOutputMessages(incoming);
+    if (gens.length > 0) {
+      const last = gens[gens.length - 1];
+      const outId = last.content?.generation_output_id || last._id;
+      setSelectedGenerationOutputId(outId);
+      if (!originalImageUrl) {
+        for (const g of gens) {
+          const oUrl = g.content?.original_url || g.content?.input_url;
+          if (oUrl) { setOriginalImageUrl(oUrl); break; }
+        }
+      }
+    }
+  }, [originalImageUrl]);
 
   const handleWsMessage = useCallback((data) => {
     if (!data || !data.action) return;
@@ -74,7 +131,10 @@ export function RestyleOverlay({
         setMessages((prev) => {
           const exists = prev.some((m) => m._id === msg._id);
           if (exists) return prev;
-          return [...prev, msg];
+          // Keep placeholder analyzing until real ai_agent content arrives (not notifications).
+          const base =
+            msg.author === 'ai_agent' ? prev.filter((m) => !m._synthetic) : prev;
+          return [...base, msg];
         });
 
         lastKnownMsgIdRef.current = msg._id;
@@ -89,17 +149,22 @@ export function RestyleOverlay({
               media_id: msg.media_id || mediaId,
             };
             setMessages((prev) => {
-              const existingIdx = prev.findIndex(
+              const base = prev.filter((m) => !m._synthetic);
+              const existingIdx = base.findIndex(
                 (m) => m._id === thoughtMsg._id && m.content?.type === 'thoughts'
               );
               if (existingIdx >= 0) {
-                const updated = [...prev];
+                const updated = [...base];
                 updated[existingIdx] = thoughtMsg;
                 return updated;
               }
-              return [...prev, thoughtMsg];
+              return [...base, thoughtMsg];
             });
-            scrollToBottom();
+          }
+          const tool = msg.content?.tool || '';
+          const isImageGeneration = tool === 'edit_image' || tool === 'create_shopping_list';
+          if (isImageGeneration) {
+            setSelectedGenerationOutputId('generating');
           }
         } else if (msg.author === 'ai_agent' || msg.author === 'notification') {
           setIsTyping(false);
@@ -123,12 +188,11 @@ export function RestyleOverlay({
         }
 
         setMessages((prev) => {
-          const merged = mergeGenerationOutputsFromWs(prev, genData);
-          const gens = collectGenerationOutputMessages(merged);
-          if (gens.length > 0) {
-            setGeneratedImages(gens);
-            setSelectedGeneration(gens[gens.length - 1]);
-          }
+          const merged = mergeGenerationOutputsFromWs(
+            prev.filter((m) => !m._synthetic),
+            genData
+          );
+          syncGenerationsFromMessages(merged);
           return merged;
         });
         scrollToBottom();
@@ -142,7 +206,7 @@ export function RestyleOverlay({
         setIsTyping(false);
         const errMsg = data.data?.message || 'Something went wrong.';
         setMessages((prev) => [
-          ...prev,
+          ...prev.filter((m) => !m._synthetic),
           {
             _id: `ws_err_${Date.now()}`,
             author: 'notification',
@@ -158,24 +222,22 @@ export function RestyleOverlay({
         setIsTyping(true);
         if (data.data?.text) {
           setMessages((prev) => {
-            const existingIdx = prev.findIndex(
+            const base = prev.filter((m) => !m._synthetic);
+            const existingIdx = base.findIndex(
               (m) => m._id === `thought_${data.data.media_id}` && m.content?.type === 'thoughts'
             );
             const thoughtMsg = {
               _id: `thought_${data.data.media_id}`,
               author: 'ai_agent',
-              content: {
-                type: 'thoughts',
-                thoughts: data.data.text,
-              },
+              content: { type: 'thoughts', thoughts: data.data.text },
               media_id: data.data.media_id,
             };
             if (existingIdx >= 0) {
-              const updated = [...prev];
+              const updated = [...base];
               updated[existingIdx] = thoughtMsg;
               return updated;
             }
-            return [...prev, thoughtMsg];
+            return [...base, thoughtMsg];
           });
           scrollToBottom();
         }
@@ -185,7 +247,7 @@ export function RestyleOverlay({
       default:
         break;
     }
-  }, [mediaId]);
+  }, [mediaId, scrollToBottom, syncGenerationsFromMessages]);
 
   useEffect(() => {
     if (!wsClient || !isOpen || !sessionId || !mediaId) return;
@@ -213,10 +275,28 @@ export function RestyleOverlay({
   }, [isOpen, onClose]);
 
   useEffect(() => {
+    const host = document.getElementById('reih-widget-host');
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      if (host) {
+        host.style.cssText =
+          'position:fixed;inset:0;width:100%;height:100%;z-index:2147483647;pointer-events:auto;overflow:visible;';
+      }
+    } else {
+      document.body.style.overflow = '';
+      if (host) {
+        host.style.cssText =
+          'all:initial;position:fixed;top:0;left:0;width:0;height:0;overflow:visible;z-index:2147483646;pointer-events:none;';
+      }
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+      const h = document.getElementById('reih-widget-host');
+      if (h) {
+        h.style.cssText =
+          'all:initial;position:fixed;top:0;left:0;width:0;height:0;overflow:visible;z-index:2147483646;pointer-events:none;';
+      }
+    };
   }, [isOpen]);
 
   function _fetchFullMessages() {
@@ -226,24 +306,19 @@ export function RestyleOverlay({
       if (incoming.length > 0) {
         setMessages(incoming);
         lastKnownMsgIdRef.current = incoming[incoming.length - 1]._id;
-
-        const gens = collectGenerationOutputMessages(incoming);
-        if (gens.length > 0) {
-          setGeneratedImages(gens);
-          setSelectedGeneration(gens[gens.length - 1]);
-
-          if (!originalImageUrl) {
-            for (const g of gens) {
-              const oUrl = g.content?.original_url || g.content?.input_url;
-              if (oUrl) { setOriginalImageUrl(oUrl); break; }
-            }
-          }
-        }
-
+        syncGenerationsFromMessages(incoming);
         const hasAnalyzing = incoming.some(
           (m) => m.content?.type === 'call_tool' || m.content?.type === 'analyzing'
         );
         setIsTyping(hasAnalyzing);
+        if (hasAnalyzing) {
+          const lastTool = [...incoming].reverse().find(
+            (m) => m.content?.type === 'call_tool'
+          );
+          if (lastTool?.content?.tool === 'edit_image' || lastTool?.content?.tool === 'create_shopping_list') {
+            setSelectedGenerationOutputId('generating');
+          }
+        }
         scrollToBottom();
       }
     }).catch(() => {});
@@ -279,15 +354,8 @@ export function RestyleOverlay({
         if (lastId !== lastKnownMsgIdRef.current) {
           lastKnownMsgIdRef.current = lastId;
           setMessages(incoming);
-
-          const gens = collectGenerationOutputMessages(incoming);
-          if (gens.length > 0) {
-            setGeneratedImages(gens);
-            setSelectedGeneration(gens[gens.length - 1]);
-          }
-
+          syncGenerationsFromMessages(incoming);
           scrollToBottom();
-
           const stillAnalyzing = incoming.some(
             (m) => m.content?.type === 'call_tool' || m.content?.type === 'analyzing'
           );
@@ -297,9 +365,7 @@ export function RestyleOverlay({
             setIsTyping(false);
           }
         }
-        if (fallbackCountRef.current >= MAX_FALLBACK_POLLS) {
-          _cancelFallback();
-        }
+        if (fallbackCountRef.current >= MAX_FALLBACK_POLLS) _cancelFallback();
       }).catch(() => {});
     }, FALLBACK_POLL_INTERVAL);
   }
@@ -315,192 +381,154 @@ export function RestyleOverlay({
     }
   }
 
-  useEffect(() => {
-    return () => _cancelFallback();
-  }, [isOpen]);
+  useEffect(() => () => _cancelFallback(), [isOpen]);
 
-  const handleSend = useCallback(
-    async (text) => {
-      if (!text.trim() || !sessionId) return;
+  const sendMessage = useCallback(async (textRaw) => {
+    const text = (textRaw ?? userInputText).trim();
+    if (!text || !sessionId) return;
 
-      const userMsg = {
-        _id: `local_${Date.now()}`,
-        author: 'user',
-        comment: text,
-        createdAt: new Date().toISOString(),
-      };
+    const userMsg = {
+      _id: `local_${Date.now()}`,
+      author: 'user',
+      comment: text,
+      createdAt: new Date().toISOString(),
+    };
 
-      setMessages((prev) => [...prev, userMsg]);
-      setIsTyping(true);
-      setError(null);
-      scrollToBottom();
+    setMessages((prev) => [
+      ...prev,
+      userMsg,
+      {
+        _id: `analyzing_${Date.now()}`,
+        author: 'analyzing',
+        comment: '',
+        _synthetic: true,
+      },
+    ]);
+    if (textRaw == null) setUserInputText('');
+    setIsTyping(true);
+    setError(null);
+    scrollToBottom();
 
-      try {
-        if (!apiClient.isTokenValid()) {
-          await apiClient.refreshToken(sessionId);
-          if (wsClient) wsClient.updateToken(apiClient.getToken());
-        }
-
-        let sentViaWs = false;
-        if (wsClient && wsClient.isConnected()) {
-          sentViaWs = wsClient.sendChatMessage(mediaId, text);
-        }
-
-        if (sentViaWs) {
-          awaitingResponseRef.current = true;
-          _startFallbackTimer();
-        } else {
-          const response = await apiClient.sendMessage(sessionId, mediaId, text);
-          if (response.message) {
-            setMessages((prev) => [...prev, response.message]);
-            lastKnownMsgIdRef.current = response.message._id;
-            scrollToBottom();
-          }
-          awaitingResponseRef.current = true;
-          _startFallbackTimer();
-
-          if (response.media_id && response.media_id !== mediaId) {
-            onSessionReady && onSessionReady(sessionId, response.media_id);
-          }
-        }
-      } catch (err) {
-        setIsTyping(false);
-        setError(err.message || 'Failed to send message. Please try again.');
-        setMessages((prev) => [
-          ...prev,
-          {
-            _id: `err_${Date.now()}`,
-            author: 'notification',
-            content: { type: 'error' },
-            comment: err.message || 'Something went wrong. Please try again.',
-          },
-        ]);
-        scrollToBottom();
+    try {
+      if (!apiClient.isTokenValid()) {
+        await apiClient.refreshToken(sessionId);
+        if (wsClient) wsClient.updateToken(apiClient.getToken());
       }
-    },
-    [sessionId, mediaId, apiClient, wsClient, onSessionReady]
-  );
 
-  const handleSmartReply = useCallback(
-    (reply) => { handleSend(reply); },
-    [handleSend]
+      let sentViaWs = false;
+      if (wsClient && wsClient.isConnected()) {
+        sentViaWs = wsClient.sendChatMessage(mediaId, text);
+      }
+
+      if (sentViaWs) {
+        awaitingResponseRef.current = true;
+        _startFallbackTimer();
+      } else {
+        const response = await apiClient.sendMessage(sessionId, mediaId, text);
+        if (response.message) {
+          setMessages((prev) => {
+            const base =
+              response.message.author === 'ai_agent'
+                ? prev.filter((m) => !m._synthetic)
+                : prev;
+            return [...base, response.message];
+          });
+          lastKnownMsgIdRef.current = response.message._id;
+        }
+        awaitingResponseRef.current = true;
+        _startFallbackTimer();
+        if (response.media_id && response.media_id !== mediaId) {
+          onSessionReady?.(sessionId, response.media_id);
+        }
+      }
+    } catch (err) {
+      setIsTyping(false);
+      setError(err.message || 'Failed to send message.');
+      setMessages((prev) => [
+        ...prev.filter((m) => !m._synthetic),
+        {
+          _id: `err_${Date.now()}`,
+          author: 'notification',
+          content: { type: 'error' },
+          comment: err.message,
+        },
+      ]);
+    }
+  }, [userInputText, sessionId, mediaId, apiClient, wsClient, onSessionReady, scrollToBottom]);
+
+  const handleSubmit = useCallback(() => sendMessage(), [sendMessage]);
+
+  const handleSmartReplySelect = useCallback((_key, reply) => {
+    sendMessage(reply);
+  }, [sendMessage]);
+
+  const handleGenerationClick = useCallback((outputId) => {
+    setSelectedGenerationOutputId(outputId);
+  }, []);
+
+  const lastCallTool = [...messages].reverse().find(
+    (m) => m.content?.type === 'call_tool'
   );
+  const isLastMessageAnalyzing = isTyping && !!lastCallTool;
+  const isLastMessageGenerating = isLastMessageAnalyzing && (
+    lastCallTool?.content?.tool === 'edit_image' ||
+    lastCallTool?.content?.tool === 'create_shopping_list'
+  );
+  const thoughtsText = useMemo(() => getThoughtsFromMessages(messages), [messages]);
+
+  const previewUrl = originalImageUrl || mediaImageUrl;
+
+  const mediaDetail = useMemo(() => buildMediaDetail({
+    mediaId,
+    mediaImageUrl: previewUrl,
+    messages,
+    selectedGenerationOutputId,
+    isGenerating: isLastMessageGenerating,
+  }), [mediaId, previewUrl, messages, selectedGenerationOutputId, isLastMessageGenerating]);
 
   if (!isOpen) return null;
 
-  const beforeImageUrl = originalImageUrl || mediaImageUrl;
-  const displayImage = selectedGeneration?.content?.preview_url || mediaImageUrl;
+  const chatList = filterChatList(messages);
 
   return (
-    h('div', { class: 'reih-overlay' },
-      h('div', { class: 'reih-overlay-backdrop', onClick: onClose }),
-      h('div', { class: 'reih-overlay-container' },
-        // Header
-        h('div', { class: 'reih-overlay-header' },
-          h('div', { class: 'reih-overlay-brand' },
-            config.logoUrl
-              ? h('img', { src: config.logoUrl, alt: config.title, class: 'reih-overlay-logo' })
-              : h('div', { class: 'reih-overlay-logo-default' },
-                  h('svg', { viewBox: '0 0 24 24', width: 20, height: 20, fill: '#fff' },
-                    h('path', { d: 'M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z' })
-                  )
-                ),
-            h('span', { class: 'reih-overlay-title' }, config.title || 'REimagineHome'),
-          ),
-          h('button', {
-            class: 'reih-overlay-close',
-            onClick: onClose,
-            'aria-label': 'Close overlay',
-          },
-            h('svg', { viewBox: '0 0 24 24', width: 24, height: 24 },
-              h('path', {
-                d: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
-                fill: 'currentColor',
-              })
-            )
-          )
-        ),
-
-        // Body — split layout
-        h('div', { class: 'reih-overlay-body' },
-          // Left: Image preview
-          h('div', { class: 'reih-overlay-preview' },
-            mediaLoading && !displayImage
-              ? h('div', { class: 'reih-v2-generating' },
-                  h('div', { class: 'reih-spinner' }),
-                  h('p', null, 'Loading image...')
-                )
-              : selectedGeneration?.content?.preview_url && beforeImageUrl
-              ? h(CompareSlider, {
-                  beforeSrc: beforeImageUrl,
-                  afterSrc: selectedGeneration.content.preview_url,
-                  beforeLabel: 'Original',
-                  afterLabel: 'Reimagined',
-                })
-              : displayImage
-              ? h('img', {
-                  src: displayImage,
-                  alt: 'Property / Generated preview',
-                  class: 'reih-overlay-preview-img',
-                })
-              : h('div', { class: 'reih-overlay-preview-placeholder' },
-                  h('svg', { viewBox: '0 0 24 24', width: 48, height: 48, fill: '#ccc' },
-                    h('path', { d: 'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z' })
-                  ),
-                  h('p', null, 'Your restyled image will appear here')
-                ),
-            generatedImages.length > 1 &&
-              h('div', { class: 'reih-overlay-thumbnails' },
-                generatedImages.map((gen) =>
-                  h('button', {
-                    key: gen._id,
-                    class: `reih-overlay-thumb${selectedGeneration?._id === gen._id ? ' reih-overlay-thumb--active' : ''}`,
-                    onClick: () => setSelectedGeneration(gen),
-                  },
-                    h('img', { src: gen.content.preview_url, alt: gen.content.action_name || 'Generated' })
-                  )
-                )
-              )
-          ),
-
-          // Right: Chat
-          h('div', { class: 'reih-overlay-chat' },
-            h('div', { class: 'reih-overlay-chat-messages' },
-              messages.length === 0 && !isTyping
-                ? h('div', { class: 'reih-overlay-welcome' },
-                    h('div', { class: 'reih-overlay-welcome-icon' },
-                      h('svg', { viewBox: '0 0 24 24', width: 32, height: 32, fill: 'currentColor' },
-                        h('path', { d: 'M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z' })
-                      )
-                    ),
-                    h('h3', null, config.welcomeTitle || 'Restyle This Space'),
-                    h('p', null, config.welcomeDescription || 'Describe how you\'d like to reimagine this room. Try "Make it modern minimalist" or "Add warm Scandinavian touches".'),
-                  )
-                : h('div', { class: 'reih-overlay-chat-list' },
-                      messages
-                        .filter((m) => isVisibleChatMessage(m, messages))
-                        .map((msg) =>
-                          h(MessageBubble, {
-                            key: msg._id,
-                            message: msg,
-                            onSmartReply: handleSmartReply,
-                            previewImageUrl: mediaImageUrl,
-                          })
-                        ),
-                      isTyping && !hasActiveGeneratingCard(messages) && h(TypingIndicator, null),
-                      h('div', { ref: messagesEndRef })
-                    ),
-            ),
-            error &&
-              h('div', { class: 'reih-msg reih-msg--error', style: 'margin:0 16px 8px' }, error),
-            h(ChatInput, {
-              onSend: handleSend,
-              disabled: !sessionId,
-              placeholder: config.placeholder || 'Describe your ideal room style...',
-            }),
-          )
-        )
-      )
+    h('div', { class: 'mcm-overlay' },
+      h('div', { class: 'mcm-overlay__backdrop', onClick: onClose }),
+      h('div', { class: 'mcm-modal-container' },
+        h(DesignPanelLeft, {
+          mediaDetail,
+          messages: chatList,
+          thoughtsText,
+          userName: config.userName,
+          isInitialLoading: mediaLoading && !previewUrl,
+          isLastMessageAnalyzing,
+          isLastMessageGenerating,
+          userInputText,
+          onInputChange: setUserInputText,
+          onSubmit: handleSubmit,
+          isSubmitDisabled: !sessionId || !userInputText.trim(),
+          onGoBack: onClose,
+          onSmartReplySelect: handleSmartReplySelect,
+          onGenerationClick: handleGenerationClick,
+          selectedGenerationOutputId,
+          showScrollButton,
+          onScrollToBottom: scrollToBottom,
+          onScrollAreaScroll: handleScroll,
+          scrollAreaRef,
+          previewImageUrl: previewUrl,
+          isFreeTrial: config.isFreeTrial,
+          creditsLeft: config.creditsLeft,
+          initialCredits: config.initialCredits,
+        }),
+        h(DesignPanelRight, {
+          mediaDetail,
+          isLastMessageGenerating,
+          thoughtsText,
+          mediaId,
+          onSelectGenerationId: setSelectedGenerationOutputId,
+        }),
+        h('div', { ref: messagesEndRef, style: 'height:0;width:0;overflow:hidden' })
+      ),
+      error && h('div', { class: 'mcm-inline-error', style: 'position:absolute;bottom:24px;left:50%;transform:translateX(-50%)' }, error)
     )
   );
 }
