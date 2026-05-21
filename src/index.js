@@ -34,11 +34,28 @@ function applyWidgetV4ImplicitOptions(prevConfig, overrides) {
 
 /** V4 Studio modal when `mode` is `widget-v4` / `WIDGET-V4`. */
 function WidgetV4App({ config, shadowRoot }) {
+  const ao = config.autoOpen;
+  const delayMs = typeof ao === 'number' && ao > 0 ? ao : 0;
+  const startClosedForDelay = delayMs > 0;
+
   const initiallyOpen =
-    config.autoOpen === false || config.autoOpen === 0 ? false : true;
+    ao === false || ao === 0 ? false : !startClosedForDelay;
+
   const [open, setOpen] = useState(initiallyOpen);
   const v4Opts =
     config.v4Studio && typeof config.v4Studio === 'object' ? config.v4Studio : {};
+
+  useEffect(() => {
+    if (!delayMs) return undefined;
+    const t = window.setTimeout(() => setOpen(true), delayMs);
+    return () => window.clearTimeout(t);
+  }, [delayMs]);
+
+  useEffect(() => {
+    const onProgOpen = () => setOpen(true);
+    window.addEventListener('reih:open-widget-v4', onProgOpen);
+    return () => window.removeEventListener('reih:open-widget-v4', onProgOpen);
+  }, []);
 
   const handleClose = () => {
     setOpen(false);
@@ -48,30 +65,7 @@ function WidgetV4App({ config, shadowRoot }) {
   };
 
   if (!open) {
-    return h(
-      'div',
-      {
-        style:
-          'pointer-events:auto;position:fixed;inset:0;display:flex;' +
-          'align-items:center;justify-content:center;padding:48px;' +
-          'background:rgba(232,234,239,0.92);font-family:system-ui, sans-serif;text-align:center;',
-      },
-      h(
-        'p',
-        { style: 'margin-bottom:16px;color:#374151' },
-        config.v4StudioClosedHint || 'Design studio closed.'
-      ),
-      h(
-        'button',
-        {
-          type: 'button',
-          onClick: () => setOpen(true),
-          style:
-            'padding:12px 20px;border-radius:10px;border:none;background:#111827;color:#fff;font-weight:600;cursor:pointer',
-        },
-        config.v4StudioReopenLabel || 'Open design studio'
-      )
-    );
+    return null;
   }
 
   return h(StudioModal, {
@@ -460,8 +454,18 @@ class ReihWidgetSDK {
   open() {
     if (!this._mounted) {
       this.init();
+      const mnFirst = normalizeWidgetMode(this._config.mode);
+      if (this._mounted && mnFirst !== 'widget-v4') {
+        window.dispatchEvent(new CustomEvent('reih:open-restyle'));
+      }
+      return this;
     }
-    window.dispatchEvent(new CustomEvent('reih:open-restyle'));
+    const mn = normalizeWidgetMode(this._config.mode);
+    if (mn === 'widget-v4') {
+      window.dispatchEvent(new CustomEvent('reih:open-widget-v4'));
+    } else {
+      window.dispatchEvent(new CustomEvent('reih:open-restyle'));
+    }
     return this;
   }
 

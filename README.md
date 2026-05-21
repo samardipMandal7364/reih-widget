@@ -150,9 +150,7 @@ Pass via `window.reihWidgetConfig` or `.configure()`:
 | `clientId` | `string` | **required** | Your client identifier _(not needed when `mode` is `"widget-v4"`)_ |
 | `mode` | `string` | `"chat"` | `"chat"`, `"restyle"`, or `"widget-v4"` / `"WIDGET-V4"` (V4 Studio modal UI) |
 | `v4Studio` | `object` | — | Optional props forwarded to `StudioModal` (`rooms`, `pills`, `historyItems`, …) |
-| `onV4StudioClose` | `function` | — | Callback when user closes V4 Studio (top-bar close) |
-| `v4StudioClosedHint` | `string` | — | Text shown after close (shown with reopen button) |
-| `v4StudioReopenLabel` | `string` | — | Label for reopen button after close |
+| `onV4StudioClose` | `function` | — | Runs when the user closes V4 Studio (top bar ✕). There is **no built‑in closed screen**; call **`window.reihWidget.open()`** or dispatch **`reih:open-widget-v4`** to show it again |
 | `apiBaseUrl` | `string` | `"https://api.reimaginehome.ai/v3"` | V3 API endpoint |
 | `apiBaseUrlV2` | `string` | derived from `apiBaseUrl` | V2 API endpoint (for generation) |
 | `wsBaseUrl` | `string` | `"wss://ws.reimaginehome.ai/prod"` | WebSocket endpoint for real-time updates |
@@ -206,11 +204,13 @@ window.reihWidget.destroy();
 
 ### `open()`
 
-Programmatically open the panel (initializes first if needed).
+Opens the overlay / panel (**restyle**, **chat**) or brings V4 Studio back after the user closed it (**`widget-v4`**). Initializes first if needed.
 
 ```js
 window.reihWidget.open();
 ```
+
+With **`widget-v4`**, this dispatches **`reih:open-widget-v4`** (you can also dispatch that **`CustomEvent`** yourself from host code).
 
 ### `on(event, callback)` / `off(event, callback)`
 
@@ -266,16 +266,19 @@ window.reihWidget.configure({
 
 ### V4 Studio Mode (`mode: "widget-v4"`)
 
-Renders the V4 Studio modal inside the same Shadow DOM mount as other modes. **`clientId` is optional** (no widget session/API is initialized). For `widget-v4`, **`autoOpen`** defaults to **`true`** and **`hideTrigger`** to **`true`** unless you set them explicitly in config (needed because SDK defaults otherwise keep the modal “closed”). Use `v4Studio: { … }` to override rooms, pills, labels, etc. Set **`autoOpen: false`** to start collapsed (reopen UI is fullscreen so it stays visible).
+Renders the V4 Studio modal inside the same Shadow DOM mount as other modes. **`clientId` is optional** (no widget session/API is initialized). For `widget-v4`, **`autoOpen`** defaults to **`true`** and **`hideTrigger`** to **`true`** unless you set them explicitly in config. Use `v4Studio: { … }` to override rooms, pills, labels, etc.
+
+When the user clicks the header **Close** control, the studio unmounts and **nothing is shown by default** (no grey screen or reopen button). Open again with **`window.reihWidget.open()`**, or dispatch **`window.dispatchEvent(new CustomEvent('reih:open-widget-v4'))`**.
 
 ```js
 window.reihWidget.configure({ mode: 'widget-v4' }).init();
 
-// Start collapsed (explicit):
+// Start hidden; open later from your own UI:
 window.reihWidget.configure({
   mode: 'widget-v4',
   autoOpen: false,
 }).init();
+document.getElementById('my-studio-btn').onclick = () => window.reihWidget.open();
 ```
 
 #### Troubleshooting `widget-v4` on another site
