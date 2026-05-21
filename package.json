@@ -1,16 +1,20 @@
 {
   "name": "@samardipmandal7364/widget-sdk",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "ReimaginHome embeddable chat widget SDK",
   "main": "dist/reih-widget.js",
-  "module": "dist/reih-widget.esms.js",
+  "module": "dist/reih-widget.esm.js",
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "rollup -c -w",
     "build": "rollup -c --environment BUILD:production",
-    "serve": "npx serve . -l 3333"
+    "serve": "npx serve . -l 3333",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "chat-widget",

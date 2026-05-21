@@ -264,14 +264,15 @@ window.reihWidget.configure({
 
 ### V4 Studio Mode (`mode: "widget-v4"`)
 
-Renders the V4 Studio modal inside the same Shadow DOM mount as other modes. **`clientId` is optional** (no widget session/API is initialized). Use `v4Studio: { … }` to override rooms, pills, labels, etc. By default the studio opens on load (`autoOpen` is treated as closed only when explicitly `false` or `0`).
+Renders the V4 Studio modal inside the same Shadow DOM mount as other modes. **`clientId` is optional** (no widget session/API is initialized). For `widget-v4`, **`autoOpen`** defaults to **`true`** and **`hideTrigger`** to **`true`** unless you set them explicitly in config (needed because SDK defaults otherwise keep the modal “closed”). Use `v4Studio: { … }` to override rooms, pills, labels, etc. Set **`autoOpen: false`** to start collapsed (reopen UI is fullscreen so it stays visible).
 
 ```js
+window.reihWidget.configure({ mode: 'widget-v4' }).init();
+
+// Start collapsed (explicit):
 window.reihWidget.configure({
   mode: 'widget-v4',
-  autoOpen: true,
-  hideTrigger: true,
-  autoInit: true,
+  autoOpen: false,
 }).init();
 ```
 

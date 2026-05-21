@@ -16,6 +16,22 @@ function normalizeWidgetMode(mode) {
   return String(mode ?? '').toLowerCase().replace(/_/g, '-').trim();
 }
 
+/**
+ * Merge configs; for widget-v4 only, infer open + hidden trigger unless the caller
+ * set them explicitly on this patch (omit autoOpen ⇢ treat as default-open Studio).
+ */
+function applyWidgetV4ImplicitOptions(prevConfig, overrides) {
+  const o = overrides && typeof overrides === 'object' ? overrides : {};
+  const merged = { ...prevConfig, ...o };
+
+  if (normalizeWidgetMode(merged.mode) !== 'widget-v4') return merged;
+
+  let next = { ...merged };
+  if (!Object.prototype.hasOwnProperty.call(o, 'autoOpen')) next.autoOpen = true;
+  if (!Object.prototype.hasOwnProperty.call(o, 'hideTrigger')) next.hideTrigger = true;
+  return next;
+}
+
 /** V4 Studio modal when `mode` is `widget-v4` / `WIDGET-V4`. */
 function WidgetV4App({ config, shadowRoot }) {
   const initiallyOpen =
@@ -36,7 +52,9 @@ function WidgetV4App({ config, shadowRoot }) {
       'div',
       {
         style:
-          'pointer-events:auto;padding:48px;font-family:system-ui, sans-serif;text-align:center',
+          'pointer-events:auto;position:fixed;inset:0;display:flex;' +
+          'align-items:center;justify-content:center;padding:48px;' +
+          'background:rgba(232,234,239,0.92);font-family:system-ui, sans-serif;text-align:center;',
       },
       h(
         'p',
@@ -342,7 +360,8 @@ class ReihWidgetSDK {
   }
 
   configure(userConfig) {
-    this._config = { ...DEFAULTS, ...userConfig };
+    const u = userConfig && typeof userConfig === 'object' ? userConfig : {};
+    this._config = applyWidgetV4ImplicitOptions(DEFAULTS, u);
     if (this._mounted) {
       this._applyCSSVars();
     }
@@ -355,8 +374,8 @@ class ReihWidgetSDK {
       return this;
     }
 
-    if (overrides) {
-      this._config = { ...this._config, ...overrides };
+    if (overrides !== undefined && overrides !== null && typeof overrides === 'object') {
+      this._config = applyWidgetV4ImplicitOptions(this._config, overrides);
     }
 
     const modeNorm = normalizeWidgetMode(this._config.mode);
