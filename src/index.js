@@ -10,6 +10,59 @@ import { saveSession, loadSession, clearSession, touchSession } from './utils/se
 import { getDomainFromUrl, extractMediaImageUrl } from './utils/helpers';
 import widgetCSS from './styles/widget.css';
 import mediaChatCSS from './v3/media-chat.css';
+import { StudioModal } from './v4/StudioModal';
+
+function normalizeWidgetMode(mode) {
+  return String(mode ?? '').toLowerCase().replace(/_/g, '-').trim();
+}
+
+/** V4 Studio modal when `mode` is `widget-v4` / `WIDGET-V4`. */
+function WidgetV4App({ config, shadowRoot }) {
+  const initiallyOpen =
+    config.autoOpen === false || config.autoOpen === 0 ? false : true;
+  const [open, setOpen] = useState(initiallyOpen);
+  const v4Opts =
+    config.v4Studio && typeof config.v4Studio === 'object' ? config.v4Studio : {};
+
+  const handleClose = () => {
+    setOpen(false);
+    try {
+      if (typeof config.onV4StudioClose === 'function') config.onV4StudioClose();
+    } catch (_) {}
+  };
+
+  if (!open) {
+    return h(
+      'div',
+      {
+        style:
+          'pointer-events:auto;padding:48px;font-family:system-ui, sans-serif;text-align:center',
+      },
+      h(
+        'p',
+        { style: 'margin-bottom:16px;color:#374151' },
+        config.v4StudioClosedHint || 'Design studio closed.'
+      ),
+      h(
+        'button',
+        {
+          type: 'button',
+          onClick: () => setOpen(true),
+          style:
+            'padding:12px 20px;border-radius:10px;border:none;background:#111827;color:#fff;font-weight:600;cursor:pointer',
+        },
+        config.v4StudioReopenLabel || 'Open design studio'
+      )
+    );
+  }
+
+  return h(StudioModal, {
+    ...v4Opts,
+    styleMount: shadowRoot,
+    isOpen: true,
+    onClose: handleClose,
+  });
+}
 
 function TriggerButton({ onClick, isOpen, primaryColor, icon, position }) {
   const posStyle = position === 'bottom-left'
@@ -306,18 +359,25 @@ class ReihWidgetSDK {
       this._config = { ...this._config, ...overrides };
     }
 
-    if (!this._config.clientId) {
+    const modeNorm = normalizeWidgetMode(this._config.mode);
+
+    if (!this._config.clientId && modeNorm !== 'widget-v4') {
       console.error('[ReihWidget] clientId is required. Set it via reihWidgetConfig or init({clientId: "..."}).');
       return this;
     }
 
-    this._apiClient = createApiClient({
-      apiBaseUrl: this._config.apiBaseUrl,
-      apiBaseUrlV2: this._config.apiBaseUrlV2,
-      bearerToken: this._config.bearerToken,
-    });
-    if (this._config.apiVersion !== 'v2' && this._config.wsBaseUrl) {
-      this._wsClient = createWidgetWebSocket({ wsBaseUrl: this._config.wsBaseUrl });
+    if (modeNorm === 'widget-v4') {
+      this._apiClient = null;
+      this._wsClient = null;
+    } else {
+      this._apiClient = createApiClient({
+        apiBaseUrl: this._config.apiBaseUrl,
+        apiBaseUrlV2: this._config.apiBaseUrlV2,
+        bearerToken: this._config.bearerToken,
+      });
+      if (this._config.apiVersion !== 'v2' && this._config.wsBaseUrl) {
+        this._wsClient = createWidgetWebSocket({ wsBaseUrl: this._config.wsBaseUrl });
+      }
     }
 
     this._host = document.createElement('div');
@@ -338,14 +398,25 @@ class ReihWidgetSDK {
     const mountPoint = document.createElement('div');
     this._shadowRoot.appendChild(mountPoint);
 
-    render(
-      h(this._config.mode === 'restyle' ? RestyleApp : App, {
-        config: this._config,
-        apiClient: this._apiClient,
-        wsClient: this._wsClient,
-      }),
-      mountPoint
-    );
+    const rootVnode =
+      modeNorm === 'widget-v4'
+        ? h(WidgetV4App, {
+            config: this._config,
+            shadowRoot: this._shadowRoot,
+          })
+        : modeNorm === 'restyle'
+          ? h(RestyleApp, {
+              config: this._config,
+              apiClient: this._apiClient,
+              wsClient: this._wsClient,
+            })
+          : h(App, {
+              config: this._config,
+              apiClient: this._apiClient,
+              wsClient: this._wsClient,
+            });
+
+    render(rootVnode, mountPoint);
 
     this._mounted = true;
     this._emitEvent('ready');

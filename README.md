@@ -147,8 +147,12 @@ Pass via `window.reihWidgetConfig` or `.configure()`:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `clientId` | `string` | **required** | Your client identifier |
-| `mode` | `string` | `"chat"` | `"chat"` (full chat) or `"restyle"` (image restyle overlay) |
+| `clientId` | `string` | **required** | Your client identifier _(not needed when `mode` is `"widget-v4"`)_ |
+| `mode` | `string` | `"chat"` | `"chat"`, `"restyle"`, or `"widget-v4"` / `"WIDGET-V4"` (V4 Studio modal UI) |
+| `v4Studio` | `object` | — | Optional props forwarded to `StudioModal` (`rooms`, `pills`, `historyItems`, …) |
+| `onV4StudioClose` | `function` | — | Callback when user closes V4 Studio (top-bar close) |
+| `v4StudioClosedHint` | `string` | — | Text shown after close (shown with reopen button) |
+| `v4StudioReopenLabel` | `string` | — | Label for reopen button after close |
 | `apiBaseUrl` | `string` | `"https://api.reimaginehome.ai/v3"` | V3 API endpoint |
 | `apiBaseUrlV2` | `string` | derived from `apiBaseUrl` | V2 API endpoint (for generation) |
 | `wsBaseUrl` | `string` | `"wss://ws.reimaginehome.ai/prod"` | WebSocket endpoint for real-time updates |
@@ -255,6 +259,19 @@ window.reihWidget.configure({
   solutionName: 'VIRTUAL_STAGING',
   hideTrigger: true,
   autoOpen: 1,
+}).init();
+```
+
+### V4 Studio Mode (`mode: "widget-v4"`)
+
+Renders the V4 Studio modal inside the same Shadow DOM mount as other modes. **`clientId` is optional** (no widget session/API is initialized). Use `v4Studio: { … }` to override rooms, pills, labels, etc. By default the studio opens on load (`autoOpen` is treated as closed only when explicitly `false` or `0`).
+
+```js
+window.reihWidget.configure({
+  mode: 'widget-v4',
+  autoOpen: true,
+  hideTrigger: true,
+  autoInit: true,
 }).init();
 ```
 
