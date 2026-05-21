@@ -217,22 +217,24 @@ window.reihWidget.open();
 Subscribe/unsubscribe to widget lifecycle events.
 
 ```js
-window.reihWidget.on('ready', () => console.log('mounted'));
+window.reihWidget.on('ready', (detail) => console.log(detail.mode));
 ```
 
 ---
 
 ## Events
 
-| Event | When |
-|-------|------|
-| `ready` | Widget mounted into DOM |
-| `destroyed` | Widget removed from DOM |
+| Event | When | Callback / `detail` |
+|-------|------|---------------------|
+| `ready` | Widget mounted into DOM | `{ mode }` — normalized mode string (`"chat"`, `"restyle"`, `"widget-v4"`, …) |
+| `destroyed` | Widget removed from DOM | `{}` |
 
 Events also fire as `CustomEvent` on `window`:
 
 ```js
-window.addEventListener('reihwidget:ready', (e) => { /* ... */ });
+window.addEventListener('reihwidget:ready', (e) => {
+  console.log(e.detail.mode); // e.g. "widget-v4"
+});
 window.addEventListener('reihwidget:media-loaded', (e) => {
   console.log(e.detail.url, e.detail.mediaId);
 });
@@ -275,6 +277,22 @@ window.reihWidget.configure({
   autoOpen: false,
 }).init();
 ```
+
+#### Troubleshooting `widget-v4` on another site
+
+1. **Use the main bundle** — `dist/reih-widget.js` (or ESM equivalent). Do **not** load only `v4-studio.js`; that is a standalone demo bundle with different wiring.
+
+2. **Script order** — `window.reihWidgetConfig = { … }` must run **before** the SDK script **evaluates**. With **`async`**, an inline config later on the page can run **too late** (race). Prefer either:
+   - an inline `<script>` config block **immediately above** a non-async widget `<script src="…">`, or  
+   - **`defer`** on the widget script **after** an inline config `<script>` (document order preserved).
+
+   Bundlers / SPAs: often `import '@scope/widget-sdk'` runs **before** you assign `reihWidgetConfig`. Call **`window.reihWidget.configure({ mode: 'widget-v4' }).init()`** yourself after your config is ready (and omit relying on global auto-init).
+
+3. **`autoInit`** — If you set **`autoInit: false`**, you must call **`window.reihWidget.init()`** (or **`configure(...).init()`**) yourself.
+
+4. **Published version** — Confirm `npm ls @samardipmandal7364/widget-sdk` matches a release that includes `widget-v4` support; rebuild and bump version if you ship from Git only.
+
+5. **Verify mount** — After load, **`document.getElementById('reih-widget-host')`** should exist. Listen for **`reihwidget:ready`** and log **`event.detail.mode`**; expect **`widget-v4`**.
 
 ---
 

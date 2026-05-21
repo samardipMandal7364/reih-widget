@@ -438,7 +438,7 @@ class ReihWidgetSDK {
     render(rootVnode, mountPoint);
 
     this._mounted = true;
-    this._emitEvent('ready');
+    this._emitEvent('ready', { mode: modeNorm });
     return this;
   }
 
