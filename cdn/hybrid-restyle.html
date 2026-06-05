@@ -54,22 +54,38 @@
     var cdnBase = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
     var params = new URLSearchParams(window.location.search);
 
+    function getParam() {
+      for (var i = 0; i < arguments.length; i++) {
+        var raw = params.get(arguments[i]);
+        if (raw != null && raw !== '') {
+          try { return decodeURIComponent(raw); } catch (_) { return raw; }
+        }
+      }
+      return undefined;
+    }
+
+    var tenantId = getParam('tenantId', 'clientId');
+    var clientId = getParam('clientId', 'tenantId');
+    var mediaId = getParam('mediaId');
+    var bearerToken = getParam('bearerToken', 'token');
+
     window.reihWidgetConfig = {
-      tenantId: params.get('tenantId') || 'demo-tenant',
-      clientId: params.get('clientId') || params.get('tenantId') || 'demo-tenant',
+      tenantId: tenantId || 'demo-tenant',
+      clientId: clientId || tenantId || 'demo-tenant',
       mode: 'restyle',
       hideTrigger: true,
       autoInit: true,
       autoOpen: false,
       primaryColor: '#6C63FF',
-      apiBaseUrl: params.get('apiBaseUrl') || 'https://api.reimaginehome.ai/v3',
-      apiBaseUrlV2: params.get('apiBaseUrlV2') || 'https://api.reimaginehome.ai/v2',
-      wsBaseUrl: params.get('wsBaseUrl') || 'wss://ws.reimaginehome.ai/prod',
-      apiVersion: params.get('apiVersion') || 'v3',
-      bearerToken: params.get('bearerToken') || undefined,
-      mediaId: params.get('mediaId') || undefined,
+      apiBaseUrl: getParam('apiBaseUrl') || 'https://api.reimaginehome.ai/v3',
+      apiBaseUrlV2: getParam('apiBaseUrlV2') || 'https://api.reimaginehome.ai/v2',
+      wsBaseUrl: getParam('wsBaseUrl') || 'wss://ws.reimaginehome.ai/prod',
+      apiVersion: getParam('apiVersion') || 'v3',
       embedBaseUrl: cdnBase,
     };
+
+    if (mediaId) window.reihWidgetConfig.mediaId = mediaId;
+    if (bearerToken) window.reihWidgetConfig.bearerToken = bearerToken;
 
     window.addEventListener('reihwidget:media-loaded', function (e) {
       console.log('[demo] media loaded', e.detail);
