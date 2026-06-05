@@ -1,11 +1,11 @@
 {
   "name": "@samardipmandal7364/widget-sdk",
-  "version": "1.0.6",
-  "description": "ReimaginHome embeddable chat widget SDK",
-  "main": "dist/reih-widget.js",
-  "module": "dist/reih-widget.esm.js",
+  "version": "2.0.0",
+  "description": "REimagineHome embeddable widget — iframe-based, multi-tenant",
+  "main": "dist/reih-loader.js",
   "files": [
-    "dist"
+    "dist",
+    "embed.html"
   ],
   "publishConfig": {
     "access": "public"
@@ -17,10 +17,11 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
-    "chat-widget",
+    "widget",
     "reimaginehome",
     "embeddable",
-    "shadow-dom"
+    "iframe",
+    "multi-tenant"
   ],
   "license": "MIT",
   "devDependencies": {

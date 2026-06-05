@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hybrid Widget — Chat Mode</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f3f4f6;
+      padding: 48px 24px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    p { color: #374151; line-height: 1.55; margin-bottom: 12px; }
+    code { background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .badge {
+      display: inline-block; padding: 3px 8px; border-radius: 6px;
+      background: #dcfce7; color: #166534; font-size: 12px; font-weight: 600;
+      margin-bottom: 16px;
+    }
+    button.cta {
+      padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
+      font: 600 14px/1.4 system-ui, sans-serif; color: #fff; background: #6C63FF;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <span class="badge">hybrid · iframe</span>
+  <h1>Chat widget (hybrid mode)</h1>
+  <p>
+    Uses the thin <code>reih-loader.js</code> on this page.
+    The full Preact app runs inside an iframe pointed at <code>embed.html</code>.
+  </p>
+  <p>Click the floating chat button (bottom-right) to open.</p>
+  <button class="cta" onclick="window.reihWidget.open()">Open programmatically</button>
+  <button class="cta" onclick="window.reihWidget.close()" style="background:#ef4444">Close</button>
+  <button class="cta" onclick="window.reihWidget.destroy()" style="background:#374151">Destroy</button>
+
+  <!-- optional: load env.js for real API keys during local development -->
+  <script src="env.js" onerror="console.log('[demo] env.js not found — using defaults')"></script>
+
+  <script>
+    var env = window.__REIH_ENV__ || {};
+    window.reihWidgetConfig = {
+      tenantId: env.clientId || 'demo-tenant',
+      clientId: env.clientId || 'demo-tenant',
+      primaryColor: '#6C63FF',
+      mode: 'chat',
+      apiBaseUrl: env.apiBaseUrl || 'https://api.reimaginehome.ai/v3',
+      apiBaseUrlV2: env.apiBaseUrlV2 || 'https://api.reimaginehome.ai/v2',
+      wsBaseUrl: env.wsBaseUrl || 'wss://ws.reimaginehome.ai/prod',
+      bearerToken: env.bearerToken || undefined,
+      embedBaseUrl: 'http://localhost:3333',
+    };
+
+    window.addEventListener('reihwidget:ready', function (e) {
+      console.log('[demo] widget ready', e.detail);
+    });
+  </script>
+  <script src="../dist/reih-loader.js"></script>
+</body>
+</html>

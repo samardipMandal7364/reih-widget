@@ -37,29 +37,31 @@ function createPlugins() {
 }
 
 export default [
+  // ─── Loader: thin vanilla JS script (runs on tenant page) ─────────────────
   {
-    input: 'src/index.js',
-    output: [
-      {
-        file: 'dist/reih-widget.js',
-        format: 'iife',
-        name: 'ReihWidget',
-        sourcemap: !isProd,
-      },
-      {
-        file: 'dist/reih-widget.esm.js',
-        format: 'es',
-        sourcemap: !isProd,
-      },
-    ],
-    plugins: createPlugins(),
-  },
-  {
-    input: 'src/v4-demo.js',
+    input: 'src/loader.js',
     output: {
-      file: 'dist/v4-studio.js',
+      file: 'dist/reih-loader.js',
       format: 'iife',
-      name: 'ReihV4Studio',
+      name: 'ReihWidgetLoader',
+      sourcemap: !isProd,
+    },
+    plugins: [
+      replace({
+        preventAssignment: true,
+        'process.env.NODE_ENV': JSON.stringify(isProd ? 'production' : 'development'),
+      }),
+      isProd && terser({ compress: { passes: 2 } }),
+    ].filter(Boolean),
+  },
+
+  // ─── Embed: Preact app (runs inside the iframe) ───────────────────────────
+  {
+    input: 'src/embed.js',
+    output: {
+      file: 'dist/reih-embed.js',
+      format: 'iife',
+      name: 'ReihWidgetEmbed',
       sourcemap: !isProd,
     },
     plugins: createPlugins(),

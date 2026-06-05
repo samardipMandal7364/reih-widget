@@ -145,6 +145,7 @@ export function ChatPanel({
     wsClient.onStatus((status) => {
       setWsConnected(status === 'connected');
     });
+    wsClient.setTokenProvider(() => apiClient.getToken());
 
     if (apiClient.getToken()) {
       wsClient.connect(apiClient.getToken());
@@ -156,6 +157,7 @@ export function ChatPanel({
     return () => {
       wsClient.onMessage(null);
       wsClient.onStatus(null);
+      wsClient.setTokenProvider(null);
     };
   }, [isOpen, sessionId, mediaId, wsClient, handleWsMessage]);
 

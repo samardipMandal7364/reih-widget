@@ -254,6 +254,7 @@ export function RestyleOverlay({
 
     wsClient.onMessage(handleWsMessage);
     wsClient.onStatus(() => {});
+    wsClient.setTokenProvider(() => apiClient.getToken());
 
     if (apiClient.getToken()) {
       wsClient.connect(apiClient.getToken());
@@ -264,6 +265,7 @@ export function RestyleOverlay({
     return () => {
       wsClient.onMessage(null);
       wsClient.onStatus(null);
+      wsClient.setTokenProvider(null);
     };
   }, [isOpen, sessionId, mediaId, wsClient, handleWsMessage]);
 

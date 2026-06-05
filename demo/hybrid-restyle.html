@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hybrid Widget — Restyle Mode</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f9fafb;
+    }
+    .listing {
+      max-width: 720px; margin: 0 auto; padding: 48px 24px;
+    }
+    .listing h1 { font-size: 24px; margin-bottom: 6px; }
+    .listing .price { font-size: 20px; color: #6C63FF; font-weight: 700; margin-bottom: 16px; }
+    .listing img {
+      width: 100%; border-radius: 12px; margin-bottom: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+    .listing p { color: #374151; line-height: 1.6; margin-bottom: 16px; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .badge {
+      display: inline-block; padding: 3px 8px; border-radius: 6px;
+      background: #dcfce7; color: #166534; font-size: 12px; font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+    button.cta {
+      padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
+      font: 600 14px/1.4 system-ui, sans-serif; color: #fff; background: #6C63FF;
+    }
+  </style>
+</head>
+<body>
+  <div class="listing">
+    <span class="badge">hybrid · iframe · restyle</span>
+    <h1>123 Maple Drive</h1>
+    <p class="price">$475,000</p>
+    <img id="listing-img"
+         src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80"
+         alt="Property photo" />
+    <p>Spacious 3-bedroom home with modern kitchen and backyard. Click the button below to restyle this property using AI.</p>
+
+    <div class="cta-row">
+      <button class="cta" onclick="window.reihWidget.open()">Restyle with AI</button>
+      <button class="cta" onclick="window.reihWidget.close()" style="background:#ef4444">Close</button>
+    </div>
+  </div>
+
+  <script src="env.js" onerror="console.log('[demo] env.js not found — using defaults')"></script>
+
+  <script>
+    var env = window.__REIH_ENV__ || {};
+    window.reihWidgetConfig = {
+      tenantId: env.clientId || 'demo-tenant',
+      clientId: env.clientId || 'demo-tenant',
+      mode: 'restyle',
+      hideTrigger: true,
+      autoInit: true,
+      autoOpen: false,
+      primaryColor: '#6C63FF',
+      apiBaseUrl: env.apiBaseUrl || 'https://api.reimaginehome.ai/v3',
+      apiBaseUrlV2: env.apiBaseUrlV2 || 'https://api.reimaginehome.ai/v2',
+      wsBaseUrl: env.wsBaseUrl || 'wss://ws.reimaginehome.ai/prod',
+      apiVersion: env.apiVersion || 'v3',
+      bearerToken: env.bearerToken || undefined,
+      mediaId: env.mediaId || undefined,
+      embedBaseUrl: 'http://localhost:3333',
+    };
+
+    window.addEventListener('reihwidget:media-loaded', function (e) {
+      console.log('[demo] media loaded', e.detail);
+      if (e.detail.url) document.getElementById('listing-img').src = e.detail.url;
+    });
+
+    window.addEventListener('reihwidget:ready', function (e) {
+      console.log('[demo] widget ready', e.detail);
+    });
+  </script>
+  <script src="../dist/reih-loader.js"></script>
+</body>
+</html>

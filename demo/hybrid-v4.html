@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hybrid Widget — V4 Studio</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #e8eaef;
+      padding: 48px 24px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    p { color: #374151; line-height: 1.55; margin-bottom: 12px; }
+    code { background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .badge {
+      display: inline-block; padding: 3px 8px; border-radius: 6px;
+      background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 600;
+      margin-bottom: 16px;
+    }
+    button.cta {
+      padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
+      font: 600 14px/1.4 system-ui, sans-serif; color: #fff; background: #6C63FF;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <span class="badge">hybrid · iframe · widget-v4</span>
+  <h1>V4 Studio (hybrid mode)</h1>
+  <p>
+    The <code>widget-v4</code> Studio modal runs inside an iframe.
+    <code>autoOpen: true</code> and <code>hideTrigger: true</code> by default for this mode.
+  </p>
+  <p>Close the studio, then reopen with the button below.</p>
+  <button class="cta" onclick="window.reihWidget.open()">Re-open Studio</button>
+
+  <script>
+    window.reihWidgetConfig = {
+      mode: 'widget-v4',
+      autoOpen: true,
+      hideTrigger: true,
+      embedBaseUrl: 'http://localhost:3333',
+    };
+
+    window.addEventListener('reihwidget:ready', function (e) {
+      console.log('[demo] widget ready', e.detail);
+    });
+  </script>
+  <script src="../dist/reih-loader.js"></script>
+</body>
+</html>

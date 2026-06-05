@@ -1,15 +1,35 @@
-# @samardipmandal7364/widget-sdk
+# REimagineHome Widget SDK
 
-Embeddable AI design assistant widget. Drop it into any website or SPA with a single script tag or import.
+Embeddable AI design widget for tenant websites. Iframe-based architecture — a thin
+vanilla JS loader on the tenant page, full Preact app inside a sandboxed iframe.
+
+---
+
+## Architecture
+
+```
+Tenant page
+├── <script src="reih-loader.js">       (2.8 KB gz, vanilla JS, no dependencies)
+│   ├── Renders trigger button on host page
+│   └── Creates iframe → widget.reimaginehome.ai/embed.html
+│       └── Preact app (~40 KB gz)
+│           ├── API calls (same-origin, no CORS)
+│           ├── WebSocket connections
+│           └── Session in iframe localStorage
+│
+└── postMessage ↔ for open/close/config/events
+```
+
+**Tenant CSP requirement:** `script-src <cdn>` + `frame-src <widget-domain>` — that's it.
 
 ---
 
 ## Install
 
-**CDN (script tag):**
+**CDN (recommended for tenants):**
 
 ```html
-<script src="https://unpkg.com/@samardipmandal7364/widget-sdk@1.0.0/dist/reih-widget.js" async></script>
+<script src="https://cdn.reimaginehome.ai/widget/reih-loader.js" async></script>
 ```
 
 **npm:**
@@ -22,325 +42,314 @@ npm install @samardipmandal7364/widget-sdk
 
 ## Quick Start
 
-### 1. Script Tag (simplest)
-
 ```html
 <script>
   window.reihWidgetConfig = {
-    clientId: 'YOUR_CLIENT_ID',
+    tenantId: 'YOUR_TENANT_ID',
     primaryColor: '#6C63FF',
   };
 </script>
-<script src="https://unpkg.com/@samardipmandal7364/widget-sdk@1.0.0/dist/reih-widget.js" async></script>
+<script src="https://cdn.reimaginehome.ai/widget/reih-loader.js" async></script>
 ```
 
-The widget auto-initializes and shows a floating trigger button.
+The widget auto-initializes, shows a floating chat button, and opens inside a
+sandboxed iframe when clicked.
 
-### 2. Deferred / Programmatic Init
+---
+
+## Config Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `tenantId` | string | — | **Required.** Issued from tenant dashboard. |
+| `mode` | string | `'chat'` | `'chat'`, `'restyle'`, or `'widget-v4'` |
+| `primaryColor` | string | `'#6C63FF'` | Brand color for trigger + widget accents |
+| `logoUrl` | string | — | Header / overlay logo image URL |
+| `fontFamily` | string | system UI stack | Widget body font (CSS font-family value) |
+| `fontFamilyHeading` | string | — | Heading / serif font (V4 Studio) |
+| `secondaryColor` | string | — | Accent + gradient end color |
+| `textPrimary` | string | `'#0F0F31'` | Primary text color |
+| `textSecondary` | string | `'#6b7280'` | Secondary text color |
+| `widgetTitle` | string | — | Chat header title (alias: `title`) |
+| `branding` | object | — | Nested override object (see below) |
+| `position` | string | `'bottom-right'` | `'bottom-right'` or `'bottom-left'` |
+| `hideTrigger` | boolean | `false` | Hide trigger button, call `open()` manually |
+| `autoOpen` | boolean / number | `false` | Auto-open on load. Number = delay in ms. |
+| `autoInit` | boolean | `true` | Set `false` to defer until `reihWidget.init()` |
+| `embedBaseUrl` | string | `'https://widget.reimaginehome.ai'` | Override for dev/staging |
+| `apiBaseUrl` | string | — | REST API base URL |
+| `apiBaseUrlV2` | string | — | V2 API base URL |
+| `wsBaseUrl` | string | — | WebSocket URL |
+| `bearerToken` | string | — | Pre-authenticated JWT (skip anonymous session) |
+| `mediaId` | string | — | Pre-selected media for restyle mode |
+| `triggerLabel` | string | `'Restyle with AI'` | Restyle trigger button text |
+| `triggerIcon` | string | — | Custom icon URL for chat FAB |
+| `v4Studio` | object | `{}` | V4 Studio config (rooms, pills, etc.) |
+
+### Branding object (`branding` or flat keys)
+
+Pass on `window.reihWidgetConfig`, `init(overrides)`, or `configure()`. Nested `branding` wins over top-level keys.
+
+| Field | Maps to |
+|-------|---------|
+| `primaryColor` | Buttons, headers, accents (`--reih-primary`, `--tenant-primary`) |
+| `secondaryColor` | Gradient end, teal accent |
+| `logoUrl` | Chat / restyle header logo |
+| `fontFamily` | Widget + FAB font |
+| `fontFamilyHeading` | V4 Studio serif headings |
+| `widgetTitle` | Header title |
+| `textPrimary` / `textSecondary` | Body text CSS variables |
+| `gradientBorder` | Custom gradient string (optional) |
+
+Dashboard defaults from the backend can be overridden per page via `init()` / `configure()`.
+
+---
+
+## JavaScript API
+
+```javascript
+// Programmatic init (if autoInit: false)
+window.reihWidget.init();
+
+// Open / close
+window.reihWidget.open();
+window.reihWidget.close();
+
+// Update config at runtime (including branding)
+window.reihWidget.configure({ primaryColor: '#FF6B6B' });
+
+// Init with full branding override (flat or nested `branding` object)
+window.reihWidget.init({
+  tenantId: 'YOUR_TENANT_ID',
+  branding: {
+    primaryColor: '#E11D48',
+    secondaryColor: '#BE123C',
+    logoUrl: 'https://cdn.example.com/logo.svg',
+    fontFamily: '"Inter", system-ui, sans-serif',
+    fontFamilyHeading: 'Georgia, serif',
+    widgetTitle: 'Acme Design Studio',
+    textPrimary: '#1a1a2e',
+    textSecondary: '#64748b',
+  },
+});
+
+// Tear down completely
+window.reihWidget.destroy();
+
+// Listen to events
+window.reihWidget.on('ready', (detail) => console.log('Ready:', detail.mode));
+window.reihWidget.on('media-loaded', (detail) => console.log('Media:', detail.url));
+
+// DOM events
+window.addEventListener('reihwidget:ready', (e) => console.log(e.detail));
+```
+
+---
+
+## Integration Examples
+
+### Deferred / Programmatic
 
 ```html
 <script>
   window.reihWidgetConfig = {
-    clientId: 'YOUR_CLIENT_ID',
+    tenantId: 'YOUR_TENANT_ID',
     autoInit: false,
+    hideTrigger: true,
   };
 </script>
-<script src="https://unpkg.com/@samardipmandal7364/widget-sdk@1.0.0/dist/reih-widget.js" async></script>
+<script src="https://cdn.reimaginehome.ai/widget/reih-loader.js" async></script>
 
-<script>
-  document.getElementById('open-btn').addEventListener('click', () => {
-    window.reihWidget.init();
-  });
-</script>
+<button onclick="window.reihWidget.init(); window.reihWidget.open();">
+  Open AI Studio
+</button>
 ```
 
-### 3. React / Next.js (Dynamic Import)
+### Restyle with Pre-Auth
+
+```html
+<script>
+  window.reihWidgetConfig = {
+    tenantId: 'YOUR_TENANT_ID',
+    mode: 'restyle',
+    bearerToken: '<jwt-from-your-backend>',
+    mediaId: '<media-id>',
+    hideTrigger: true,
+    autoOpen: false,
+    embedBaseUrl: 'https://widget.reimaginehome.ai',
+  };
+</script>
+<script src="https://cdn.reimaginehome.ai/widget/reih-loader.js" async></script>
+
+<button onclick="window.reihWidget.open()">Restyle this property</button>
+```
+
+### React / Next.js
 
 ```jsx
 "use client";
-
 import { useCallback, useRef } from "react";
 
-const WIDGET_SCRIPT_URL =
-  "https://unpkg.com/@samardipmandal7364/widget-sdk@1.0.0/dist/reih-widget.js";
+const LOADER_URL = "https://cdn.reimaginehome.ai/widget/reih-loader.js";
 
-function loadWidgetScript() {
+function loadLoader() {
   return new Promise((resolve, reject) => {
-    if (window.reihWidget?.configure) {
-      resolve(window.reihWidget);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = WIDGET_SCRIPT_URL;
-    script.async = true;
-    script.onload = () =>
-      window.reihWidget?.configure
-        ? resolve(window.reihWidget)
-        : reject(new Error("reihWidget not available after load"));
-    script.onerror = () => reject(new Error("Failed to load widget script"));
-    document.body.appendChild(script);
+    if (window.reihWidget?.init) return resolve(window.reihWidget);
+    const s = document.createElement("script");
+    s.src = LOADER_URL;
+    s.async = true;
+    s.onload = () =>
+      window.reihWidget ? resolve(window.reihWidget) : reject(new Error("Loader failed"));
+    s.onerror = () => reject(new Error("Failed to load widget loader"));
+    document.body.appendChild(s);
   });
 }
 
 export function useReihWidget() {
-  const loadingRef = useRef(null);
+  const loaded = useRef(null);
 
-  const openWidget = useCallback(async ({ mediaId, bearerToken } = {}) => {
+  const openWidget = useCallback(async (overrides = {}) => {
     if (typeof window === "undefined") return;
 
     const config = {
+      tenantId: "YOUR_TENANT_ID",
       mode: "restyle",
-      clientId: "YOUR_CLIENT_ID",
-      apiBaseUrl: "https://api.reimaginehome.ai/v3",
-      apiBaseUrlV2: "https://api.reimaginehome.ai/v2",
-      wsBaseUrl: "wss://ws.reimaginehome.ai/prod",
-      apiVersion: "v2",
-      primaryColor: "#6C63FF",
-      title: "REimagineHome",
-      subtitle: "AI Design Assistant",
       hideTrigger: true,
-      autoOpen: 1,
-      solutionName: "VIRTUAL_STAGING",
-      ...(mediaId ? { mediaId } : {}),
-      ...(bearerToken ? { bearerToken } : {}),
+      ...overrides,
     };
 
-    try {
-      if (!loadingRef.current) {
-        window.reihWidgetConfig = { ...config, autoInit: false };
-        loadingRef.current = loadWidgetScript();
-      }
-      const widget = await loadingRef.current;
-
-      if (widget._mounted) widget.destroy();
-
-      widget.configure(config);
-      widget.init();
-    } catch (error) {
-      loadingRef.current = null;
-      console.error("[ReihWidget] Failed to open:", error);
+    if (!loaded.current) {
+      window.reihWidgetConfig = { ...config, autoInit: false };
+      loaded.current = loadLoader();
     }
+
+    const widget = await loaded.current;
+    widget.configure(config);
+    widget.init();
+    widget.open();
   }, []);
 
-  return { openWidget };
+  const closeWidget = useCallback(() => {
+    window.reihWidget?.close();
+  }, []);
+
+  return { openWidget, closeWidget };
 }
-```
-
-**Usage in a component:**
-
-```jsx
-function DesignButton({ mediaId, token }) {
-  const { openWidget } = useReihWidget();
-  return (
-    <button onClick={() => openWidget({ mediaId, bearerToken: token })}>
-      Open AI Designer
-    </button>
-  );
-}
-```
-
----
-
-## Configuration
-
-Pass via `window.reihWidgetConfig` or `.configure()`:
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `clientId` | `string` | **required** | Your client identifier _(not needed when `mode` is `"widget-v4"`)_ |
-| `mode` | `string` | `"chat"` | `"chat"`, `"restyle"`, or `"widget-v4"` / `"WIDGET-V4"` (V4 Studio modal UI) |
-| `v4Studio` | `object` | — | Optional props forwarded to `StudioModal` (`rooms`, `pills`, `historyItems`, …) |
-| `onV4StudioClose` | `function` | — | Runs when the user closes V4 Studio (top bar ✕). There is **no built‑in closed screen**; call **`window.reihWidget.open()`** or dispatch **`reih:open-widget-v4`** to show it again |
-| `apiBaseUrl` | `string` | `"https://api.reimaginehome.ai/v3"` | V3 API endpoint |
-| `apiBaseUrlV2` | `string` | derived from `apiBaseUrl` | V2 API endpoint (for generation) |
-| `wsBaseUrl` | `string` | `"wss://ws.reimaginehome.ai/prod"` | WebSocket endpoint for real-time updates |
-| `apiVersion` | `string` | `"v3"` | `"v2"` or `"v3"` — controls which generation flow is used |
-| `bearerToken` | `string` | — | Pre-authenticated JWT (skips widget session init) |
-| `mediaId` | `string` | — | Pre-load a specific media/image for restyle |
-| `primaryColor` | `string` | `"#6C63FF"` | Brand accent color (hex) |
-| `title` | `string` | `"REimagineHome"` | Header title |
-| `subtitle` | `string` | `"AI Design Assistant"` | Header subtitle |
-| `welcomeTitle` | `string` | `"Welcome!"` | Welcome screen heading |
-| `welcomeDescription` | `string` | `"Upload an image..."` | Welcome screen body |
-| `placeholder` | `string` | `"Tell us what to change..."` | Input placeholder |
-| `position` | `string` | `"bottom-right"` | `"bottom-right"` or `"bottom-left"` |
-| `hideTrigger` | `boolean` | `false` | Hide the built-in floating button |
-| `autoOpen` | `boolean \| number` | `false` | Auto-open on load. Number = delay in ms |
-| `autoInit` | `boolean` | `true` | Auto-initialize on script load |
-| `triggerIcon` | `string` | built-in SVG | Custom trigger icon URL |
-| `logoUrl` | `string` | — | Logo shown in chat header |
-| `solutionName` | `string` | `"REDESIGN_FURNISHED_ROOM"` | Generation solution type |
-| `poweredByText` | `string \| false` | `"REimagineHome"` | Footer text. `false` hides it |
-
----
-
-## API
-
-All methods are available on `window.reihWidget`:
-
-### `configure(config)`
-
-Update config. Chainable. Can be called before or after `init()`.
-
-```js
-window.reihWidget.configure({ primaryColor: '#FF5733' });
-```
-
-### `init(overrides?)`
-
-Mount the widget into the page (Shadow DOM). Optional config overrides.
-
-```js
-window.reihWidget.init({ clientId: 'my-id' });
-```
-
-### `destroy()`
-
-Unmount and clean up all DOM, timers, and WebSocket connections.
-
-```js
-window.reihWidget.destroy();
-```
-
-### `open()`
-
-Opens the overlay / panel (**restyle**, **chat**) or brings V4 Studio back after the user closed it (**`widget-v4`**). Initializes first if needed.
-
-```js
-window.reihWidget.open();
-```
-
-With **`widget-v4`**, this dispatches **`reih:open-widget-v4`** (you can also dispatch that **`CustomEvent`** yourself from host code).
-
-### `on(event, callback)` / `off(event, callback)`
-
-Subscribe/unsubscribe to widget lifecycle events.
-
-```js
-window.reihWidget.on('ready', (detail) => console.log(detail.mode));
 ```
 
 ---
 
 ## Events
 
-| Event | When | Callback / `detail` |
-|-------|------|---------------------|
-| `ready` | Widget mounted into DOM | `{ mode }` — normalized mode string (`"chat"`, `"restyle"`, `"widget-v4"`, …) |
-| `destroyed` | Widget removed from DOM | `{}` |
+| Event | When | Detail |
+|-------|------|--------|
+| `ready` | Widget mounted inside iframe | `{ mode }` |
+| `media-loaded` | Media fetched from API | `{ url, mediaId, media }` |
+| `destroyed` | Widget torn down | `{}` |
 
-Events also fire as `CustomEvent` on `window`:
+Events fire both as callbacks (`widget.on(name, cb)`) and DOM events (`reihwidget:<name>`).
 
-```js
-window.addEventListener('reihwidget:ready', (e) => {
-  console.log(e.detail.mode); // e.g. "widget-v4"
-});
-window.addEventListener('reihwidget:media-loaded', (e) => {
-  console.log(e.detail.url, e.detail.mediaId);
-});
+---
+
+## Build Outputs
+
+| File | Description |
+|------|-------------|
+| `dist/reih-loader.js` | Thin loader — runs on tenant page (2.8 KB gz) |
+| `dist/reih-embed.js` | Preact app — runs inside iframe (~40 KB gz) |
+| `embed.html` | HTML shell for the iframe |
+
+---
+
+## CSP (Content Security Policy)
+
+Tenants only need two directives:
+
+```
+script-src 'self' https://cdn.reimaginehome.ai;
+frame-src https://widget.reimaginehome.ai;
+```
+
+All API calls, WebSocket, images, and styles run inside the iframe on the widget domain.
+
+---
+
+## Local Development
+
+```bash
+npm install
+npm run build
+npm run serve          # http://localhost:3333
+
+# Demos:
+#   http://localhost:3333/demo/hybrid-chat.html
+#   http://localhost:3333/demo/hybrid-restyle.html
+#   http://localhost:3333/demo/hybrid-v4.html
+```
+
+For watch mode:
+
+```bash
+npm run dev            # rebuilds on file change
+npm run serve          # in another terminal
+```
+
+Demo pages use `embedBaseUrl: 'http://localhost:3333'` to point the iframe at
+the local `embed.html`.
+
+---
+
+## Deployment
+
+### Widget domain (your infra)
+
+```
+widget.reimaginehome.ai/
+├── embed.html          ← from repo root (update script src to ./reih-embed.js)
+└── reih-embed.js       ← dist/reih-embed.js
+```
+
+Headers: `Content-Security-Policy: frame-ancestors *;`
+
+### CDN (for the loader)
+
+```
+cdn.reimaginehome.ai/widget/reih-loader.js  ← dist/reih-loader.js
 ```
 
 ---
 
-## Modes
+## Project Structure
 
-### Chat Mode (`mode: "chat"`)
-
-Full conversational UI. User uploads an image, chats with the AI, and receives generated designs via WebSocket.
-
-### Restyle Mode (`mode: "restyle"`)
-
-Overlay-based flow optimized for a single image restyle. Pass `mediaId` and `bearerToken` to skip session initialization and jump straight into generation.
-
-```js
-window.reihWidget.configure({
-  mode: 'restyle',
-  mediaId: 'abc123',
-  bearerToken: 'eyJ...',
-  apiVersion: 'v2',
-  solutionName: 'VIRTUAL_STAGING',
-  hideTrigger: true,
-  autoOpen: 1,
-}).init();
 ```
+src/
+├── loader.js           ← Vanilla JS loader (runs on tenant page)
+├── embed.js            ← Preact iframe entry point
+├── components/         ← UI components (ChatPanel, RestyleOverlay, etc.)
+├── utils/              ← API client, WebSocket, session, helpers
+├── styles/             ← Widget CSS
+├── v3/                 ← Restyle v3 components (MediaChatModal port)
+└── v4/                 ← V4 Studio components
 
-### V4 Studio Mode (`mode: "widget-v4"`)
+demo/
+├── hybrid-chat.html    ← Chat mode demo
+├── hybrid-restyle.html ← Restyle mode demo
+├── hybrid-v4.html      ← V4 Studio demo
+├── env.example.js      ← Environment config template
+└── env.js              ← Local dev config (gitignored)
 
-Renders the V4 Studio modal inside the same Shadow DOM mount as other modes. **`clientId` is optional** (no widget session/API is initialized). For `widget-v4`, **`autoOpen`** defaults to **`true`** and **`hideTrigger`** to **`true`** unless you set them explicitly in config. Use `v4Studio: { … }` to override rooms, pills, labels, etc.
-
-When the user clicks the header **Close** control, the studio unmounts and **nothing is shown by default** (no grey screen or reopen button). Open again with **`window.reihWidget.open()`**, or dispatch **`window.dispatchEvent(new CustomEvent('reih:open-widget-v4'))`**.
-
-```js
-window.reihWidget.configure({ mode: 'widget-v4' }).init();
-
-// Start hidden; open later from your own UI:
-window.reihWidget.configure({
-  mode: 'widget-v4',
-  autoOpen: false,
-}).init();
-document.getElementById('my-studio-btn').onclick = () => window.reihWidget.open();
-```
-
-#### Troubleshooting `widget-v4` on another site
-
-1. **Use the main bundle** — `dist/reih-widget.js` (or ESM equivalent). Do **not** load only `v4-studio.js`; that is a standalone demo bundle with different wiring.
-
-2. **Script order** — `window.reihWidgetConfig = { … }` must run **before** the SDK script **evaluates**. With **`async`**, an inline config later on the page can run **too late** (race). Prefer either:
-   - an inline `<script>` config block **immediately above** a non-async widget `<script src="…">`, or  
-   - **`defer`** on the widget script **after** an inline config `<script>` (document order preserved).
-
-   Bundlers / SPAs: often `import '@scope/widget-sdk'` runs **before** you assign `reihWidgetConfig`. Call **`window.reihWidget.configure({ mode: 'widget-v4' }).init()`** yourself after your config is ready (and omit relying on global auto-init).
-
-3. **`autoInit`** — If you set **`autoInit: false`**, you must call **`window.reihWidget.init()`** (or **`configure(...).init()`**) yourself.
-
-4. **Published version** — Confirm `npm ls @samardipmandal7364/widget-sdk` matches a release that includes `widget-v4` support; rebuild and bump version if you ship from Git only.
-
-5. **Verify mount** — After load, **`document.getElementById('reih-widget-host')`** should exist. Listen for **`reihwidget:ready`** and log **`event.detail.mode`**; expect **`widget-v4`**.
-
----
-
-## Authentication
-
-Two authentication strategies:
-
-1. **Widget session (default)** — The SDK calls `/widget/session` with your `clientId` and the page domain. The backend returns a short-lived JWT. Your domain must be whitelisted.
-
-2. **Bearer token (pre-auth)** — Pass `bearerToken` in config to skip session creation. Useful when your app already has an authenticated user. The token is sent as `Authorization: Bearer <token>` on all API calls.
-
----
-
-## Fullscreen Override (CSS)
-
-To make the panel fill the viewport (e.g., in a modal context), inject a style into the widget's Shadow DOM:
-
-```js
-const css = `
-  .reih-panel {
-    width: 100vw !important;
-    height: 100vh !important;
-    max-width: 100vw !important;
-    max-height: 100vh !important;
-    inset: 0 !important;
-    border-radius: 0 !important;
-  }
-`;
-const style = document.createElement('style');
-style.textContent = css;
-window.reihWidget._shadowRoot.appendChild(style);
+embed.html              ← iframe HTML shell
 ```
 
 ---
 
-## Content Security Policy
+## Docs
 
-If your site uses CSP headers:
-
-```
-script-src 'self' https://unpkg.com;
-connect-src 'self' https://api.reimaginehome.ai wss://ws.reimaginehome.ai;
-img-src 'self' https://cdn-2.reimaginehome.ai https://*.amazonaws.com;
-style-src 'self' 'unsafe-inline';
-```
+| Document | Contents |
+|----------|----------|
+| [HYBRID_MIGRATION.md](./HYBRID_MIGRATION.md) | Architecture details, postMessage protocol, migration guide |
+| [BACKEND_SPEC.md](./BACKEND_SPEC.md) | Production backend spec — AWS infra, DB schemas, JWT auth, analytics, scaling |
+| [TENANT_DASHBOARD_SPEC.md](./TENANT_DASHBOARD_SPEC.md) | Tenant portal — pricing, analytics, API keys, billing, team |
 
 ---
 
@@ -353,18 +362,6 @@ style-src 'self' 'unsafe-inline';
 | Safari | 10+ |
 | Edge | 79+ |
 | iOS Safari | 10+ |
-
-Requires Shadow DOM v1. No IE support.
-
----
-
-## Technical Details
-
-- **~12 KB** gzipped bundle (Preact runtime)
-- Renders inside a **closed Shadow DOM** — no CSS conflicts with host page
-- Singleton — only one widget instance per page
-- WebSocket with auto-reconnect and heartbeat
-- Session stored in `localStorage` (30-min TTL, auto-refresh)
 
 ---
 

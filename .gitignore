@@ -3,3 +3,6 @@ dist/
 demo/env.js
 .DS_Store
 *.log
+HYBRID_MIGRATION.md
+BACKEND_SPEC.md
+SECURITY.md
