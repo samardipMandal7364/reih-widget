@@ -1,6 +1,7 @@
 node_modules/
 dist/
 demo/env.js
+cdn/env.js
 .DS_Store
 *.log
 HYBRID_MIGRATION.md

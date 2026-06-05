@@ -16,7 +16,7 @@ import { RestyleOverlayV2 } from './components/RestyleOverlayV2';
 import { createApiClient } from './utils/api';
 import { createWidgetWebSocket } from './utils/websocket';
 import { saveSession, loadSession, clearSession, touchSession } from './utils/session';
-import { extractMediaImageUrl } from './utils/helpers';
+import { resolveMediaImageUrl } from './utils/helpers';
 import widgetCSS from './styles/widget.css';
 import mediaChatCSS from './v3/media-chat.css';
 import { StudioModal } from './v4/StudioModal';
@@ -132,7 +132,8 @@ function EmbedRestyleApp({ config, apiClient, wsClient }) {
   var _d = useState(!!config.mediaId), mediaLoading = _d[0], setMediaLoading = _d[1];
   var _e = useState(!!config.bearerToken), initialized = _e[0], setInitialized = _e[1];
 
-  var mediaImageUrl = extractMediaImageUrl(mediaDetail) || config.propertyImage || '';
+  var mediaConfig = Object.assign({}, config, { mediaId: mediaId });
+  var mediaImageUrl = resolveMediaImageUrl(mediaDetail, mediaConfig);
   var apiVersion = config.apiVersion || 'v3';
 
   useEffect(function () {
@@ -144,21 +145,41 @@ function EmbedRestyleApp({ config, apiClient, wsClient }) {
   }, [config.mediaId]);
 
   useEffect(function () {
+    if (!mediaId) return;
+    var cfg = Object.assign({}, config, { mediaId: mediaId });
+    var cdnUrl = resolveMediaImageUrl(null, cfg);
+    if (!cdnUrl) return;
+    postToParent('event', {
+      name: 'media-loaded',
+      detail: { url: cdnUrl, mediaId: mediaId },
+    });
+  }, [
+    config.projectId,
+    config.project_id,
+    config.cdnEnv,
+    config.apiEnv,
+    config.cdnBaseUrl,
+    mediaId,
+  ]);
+
+  useEffect(function () {
     if (!mediaId || !apiClient || !apiClient.getMedia) return;
     var cancelled = false;
-    setMediaLoading(true);
+    var cfg = Object.assign({}, config, { mediaId: mediaId });
+    var hasCdnUrl = !!resolveMediaImageUrl(null, cfg);
+    if (!hasCdnUrl) setMediaLoading(true);
 
     apiClient.getMedia(mediaId, apiVersion)
       .then(function (data) {
         if (cancelled) return;
         setMediaDetail(data);
-        var url = extractMediaImageUrl(data);
+        var url = resolveMediaImageUrl(data, cfg);
         if (url) {
           postToParent('event', {
             name: 'media-loaded',
             detail: { url: url, mediaId: mediaId, media: data },
           });
-        } else {
+        } else if (!hasCdnUrl) {
           postToParent('event', {
             name: 'media-error',
             detail: {
@@ -170,6 +191,14 @@ function EmbedRestyleApp({ config, apiClient, wsClient }) {
       })
       .catch(function (err) {
         console.warn('[ReihEmbed] Failed to load media:', err.message);
+        var fallback = resolveMediaImageUrl(null, cfg);
+        if (fallback) {
+          postToParent('event', {
+            name: 'media-loaded',
+            detail: { url: fallback, mediaId: mediaId },
+          });
+          return;
+        }
         postToParent('event', {
           name: 'media-error',
           detail: { message: err.message, mediaId: mediaId },
@@ -180,7 +209,7 @@ function EmbedRestyleApp({ config, apiClient, wsClient }) {
       });
 
     return function () { cancelled = true; };
-  }, [mediaId, apiClient, apiVersion]);
+  }, [mediaId, apiClient, apiVersion, config.projectId, config.project_id, config.cdnEnv, config.apiEnv]);
 
   var initSession = useCallback(async function () {
     if (initialized && mediaId) return;

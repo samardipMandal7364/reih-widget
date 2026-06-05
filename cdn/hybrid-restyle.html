@@ -58,6 +58,8 @@
     <div id="status" class="status status--info"></div>
   </div>
 
+  <script src="./env.js" onerror="console.log('[demo] env.js not found — using URL params only')"></script>
+
   <script>
     var API_PRESETS = {
       prod: {
@@ -84,7 +86,7 @@
       return merged;
     }
 
-    function getParam(params) {
+    function getParam() {
       for (var i = 0; i < arguments.length; i++) {
         var raw = params.get(arguments[i]);
         if (raw != null && raw !== '') {
@@ -100,41 +102,52 @@
       el.className = 'status status--' + (type || 'info');
     }
 
+    var env = window.__REIH_ENV__ || {};
     var cdnBase = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
     var params = readParams();
-    var apiEnv = getParam('apiEnv') || 'dev';
+    var apiEnv = getParam('apiEnv') || env.apiEnv || 'dev';
     var preset = API_PRESETS[apiEnv] || API_PRESETS.dev;
 
-    var tenantId = getParam('tenantId', 'clientId');
-    var clientId = getParam('clientId', 'tenantId');
-    var mediaId = getParam('mediaId');
-    var bearerToken = getParam('bearerToken', 'token');
+    var tenantId = env.tenantId || env.clientId || getParam('tenantId', 'clientId');
+    var clientId = env.clientId || env.tenantId || getParam('clientId', 'tenantId');
+    var projectId = getParam('projectId', 'project_id') || env.projectId;
+    var mediaId = getParam('mediaId', 'media_id') || env.mediaId;
+    var bearerToken = getParam('bearerToken', 'token') || env.bearerToken;
 
-    if (!mediaId || !bearerToken) {
+    if (!projectId || !mediaId || !bearerToken) {
       setStatus(
-        'Missing required params: mediaId and bearerToken (or token). ' +
-        'For long JWTs, put the token in the URL hash instead of the query string.',
+        'Missing required params: projectId, mediaId, and bearerToken (or token). ' +
+        'Image URL format: cdn-2.reimaginehome.ai/{env}/{projectId}/{mediaId}/original.jpg',
         'error'
       );
     } else {
-      setStatus('Config loaded for mediaId ' + mediaId + ' using ' + apiEnv + ' API.', 'ok');
+      setStatus(
+        'Config loaded for project ' + projectId + ' / media ' + mediaId + ' using ' + apiEnv + ' API.',
+        'ok'
+      );
     }
 
+    tenantId = tenantId || clientId || 'demo-tenant';
+    clientId = clientId || tenantId || 'demo-tenant';
+
     window.reihWidgetConfig = {
-      tenantId: tenantId || clientId || 'demo-tenant',
-      clientId: clientId || tenantId || 'demo-tenant',
+      tenantId: tenantId,
+      clientId: clientId,
       mode: 'restyle',
       hideTrigger: true,
       autoInit: true,
       autoOpen: false,
       primaryColor: '#6C63FF',
-      apiBaseUrl: getParam('apiBaseUrl') || preset.apiBaseUrl,
-      apiBaseUrlV2: getParam('apiBaseUrlV2') || preset.apiBaseUrlV2,
-      wsBaseUrl: getParam('wsBaseUrl') || preset.wsBaseUrl,
-      apiVersion: getParam('apiVersion') || 'v3',
-      embedBaseUrl: cdnBase,
+      apiBaseUrl: getParam('apiBaseUrl') || env.apiBaseUrl || preset.apiBaseUrl,
+      apiBaseUrlV2: getParam('apiBaseUrlV2') || env.apiBaseUrlV2 || preset.apiBaseUrlV2,
+      wsBaseUrl: getParam('wsBaseUrl') || env.wsBaseUrl || preset.wsBaseUrl,
+      apiVersion: getParam('apiVersion') || env.apiVersion || 'v3',
+      apiEnv: apiEnv,
+      cdnEnv: getParam('cdnEnv') || apiEnv,
+      projectId: projectId,
       mediaId: mediaId,
       bearerToken: bearerToken,
+      embedBaseUrl: cdnBase,
     };
 
     window.addEventListener('reihwidget:media-loaded', function (e) {
@@ -152,6 +165,6 @@
       console.log('[demo] widget ready', e.detail);
     });
   </script>
-  <script src="./reih-loader.js" async></script>
+  <script src="./reih-loader.js"></script>
 </body>
 </html>

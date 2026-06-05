@@ -186,9 +186,63 @@ export function getQuickOptionsForMessage(msg) {
   return parseQuickOptionsFromText(text);
 }
 
+/** Build REimagineHome CDN URL: /{env}/{projectId}/{mediaId}/original.jpg */
+export function buildMediaCdnUrl({
+  projectId,
+  mediaId,
+  cdnEnv = 'dev',
+  cdnBaseUrl = 'https://cdn-2.reimaginehome.ai',
+} = {}) {
+  if (!projectId || !mediaId) return '';
+  const env = String(cdnEnv || 'dev').replace(/^\/|\/$/g, '');
+  const base = String(cdnBaseUrl || 'https://cdn-2.reimaginehome.ai').replace(/\/$/, '');
+  return `${base}/${env}/${projectId}/${mediaId}/original.jpg`;
+}
+
+/** Resolve display URL from API response and/or projectId + mediaId config */
+export function resolveMediaImageUrl(media, config = {}) {
+  const fromMedia = extractMediaImageUrl(media);
+  if (fromMedia) return fromMedia;
+
+  const projectId =
+    config.projectId ||
+    config.project_id ||
+    media?.project_id ||
+    media?.projectId;
+  const mediaId =
+    config.mediaId ||
+    config.media_id ||
+    media?._id ||
+    media?.media_id ||
+    media?.id;
+
+  if (projectId && mediaId) {
+    return buildMediaCdnUrl({
+      projectId,
+      mediaId,
+      cdnEnv: config.cdnEnv || config.apiEnv || 'dev',
+      cdnBaseUrl: config.cdnBaseUrl,
+    });
+  }
+
+  return config.propertyImage || '';
+}
+
 /** Resolve display URL from v2/v3 media API response */
 export function extractMediaImageUrl(media) {
   if (!media) return '';
+
+  const projectId = media.project_id || media.projectId;
+  const mediaId = media._id || media.media_id || media.id;
+  if (projectId && mediaId) {
+    const fromCdn = buildMediaCdnUrl({
+      projectId,
+      mediaId,
+      cdnEnv: media.env || media.environment || media.cdn_env || 'dev',
+      cdnBaseUrl: media.cdn_base_url || media.cdnBaseUrl,
+    });
+    if (fromCdn) return fromCdn;
+  }
 
   const direct =
     media.url ||

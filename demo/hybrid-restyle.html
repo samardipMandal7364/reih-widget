@@ -53,21 +53,68 @@
   <script src="env.js" onerror="console.log('[demo] env.js not found — using defaults')"></script>
 
   <script>
+    var API_PRESETS = {
+      prod: {
+        apiBaseUrl: 'https://api.reimaginehome.ai/v3',
+        apiBaseUrlV2: 'https://api.reimaginehome.ai/v2',
+        wsBaseUrl: 'wss://ws.reimaginehome.ai/prod',
+      },
+      dev: {
+        apiBaseUrl: 'https://dev-api.reimaginehome.ai/v3',
+        apiBaseUrlV2: 'https://dev-api.reimaginehome.ai/v2',
+        wsBaseUrl: 'wss://bcbss17qsc.execute-api.us-west-2.amazonaws.com/dev',
+      },
+    };
+
+    function readParams() {
+      var merged = new URLSearchParams(window.location.search);
+      var hash = window.location.hash.replace(/^#/, '');
+      if (hash) {
+        var hashParams = new URLSearchParams(hash);
+        hashParams.forEach(function (value, key) {
+          if (!merged.has(key)) merged.set(key, value);
+        });
+      }
+      return merged;
+    }
+
+    function getParam() {
+      for (var i = 0; i < arguments.length; i++) {
+        var raw = params.get(arguments[i]);
+        if (raw != null && raw !== '') {
+          try { return decodeURIComponent(raw); } catch (_) { return raw; }
+        }
+      }
+      return undefined;
+    }
+
     var env = window.__REIH_ENV__ || {};
+    var params = readParams();
+    var apiEnv = getParam('apiEnv') || env.apiEnv || 'dev';
+    var preset = API_PRESETS[apiEnv] || API_PRESETS.dev;
+
+    var tenantId = env.tenantId || env.clientId || getParam('tenantId', 'clientId');
+    var clientId = env.clientId || env.tenantId || getParam('clientId', 'tenantId');
+    tenantId = tenantId || clientId || 'demo-tenant';
+    clientId = clientId || tenantId || 'demo-tenant';
+
     window.reihWidgetConfig = {
-      tenantId: env.clientId || 'demo-tenant',
-      clientId: env.clientId || 'demo-tenant',
+      tenantId: tenantId,
+      clientId: clientId,
       mode: 'restyle',
       hideTrigger: true,
       autoInit: true,
       autoOpen: false,
       primaryColor: '#6C63FF',
-      apiBaseUrl: env.apiBaseUrl || 'https://api.reimaginehome.ai/v3',
-      apiBaseUrlV2: env.apiBaseUrlV2 || 'https://api.reimaginehome.ai/v2',
-      wsBaseUrl: env.wsBaseUrl || 'wss://ws.reimaginehome.ai/prod',
-      apiVersion: env.apiVersion || 'v3',
-      bearerToken: env.bearerToken || undefined,
-      mediaId: env.mediaId || undefined,
+      apiBaseUrl: getParam('apiBaseUrl') || env.apiBaseUrl || preset.apiBaseUrl,
+      apiBaseUrlV2: getParam('apiBaseUrlV2') || env.apiBaseUrlV2 || preset.apiBaseUrlV2,
+      wsBaseUrl: getParam('wsBaseUrl') || env.wsBaseUrl || preset.wsBaseUrl,
+      apiVersion: getParam('apiVersion') || env.apiVersion || 'v3',
+      apiEnv: apiEnv,
+      cdnEnv: getParam('cdnEnv') || apiEnv,
+      projectId: getParam('projectId', 'project_id') || env.projectId,
+      mediaId: getParam('mediaId', 'media_id') || env.mediaId,
+      bearerToken: getParam('bearerToken', 'token') || env.bearerToken,
       embedBaseUrl: 'http://localhost:3333',
     };
 
