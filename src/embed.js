@@ -58,7 +58,7 @@ var EMBED_OVERRIDES_CSS =
 
 // ─── Chat mode wrapper ──────────────────────────────────────────────────────
 
-function EmbedChatApp({ config, apiClient, wsClient }) {
+function EmbedChatApp({ config, apiClient, wsClient, isOpen }) {
   var _a = useState(null), sessionId = _a[0], setSessionId = _a[1];
   var _b = useState(null), mediaId = _b[0], setMediaId = _b[1];
   var _c = useState(false), initialized = _c[0], setInitialized = _c[1];
@@ -108,7 +108,7 @@ function EmbedChatApp({ config, apiClient, wsClient }) {
   }, []);
 
   return h(ChatPanel, {
-    isOpen: true,
+    isOpen: isOpen,
     onClose: handleClose,
     config: Object.assign({}, config, { hideTrigger: true }),
     apiClient: apiClient,
@@ -125,7 +125,7 @@ function EmbedChatApp({ config, apiClient, wsClient }) {
 
 // ─── Restyle mode wrapper ───────────────────────────────────────────────────
 
-function EmbedRestyleApp({ config, apiClient, wsClient }) {
+function EmbedRestyleApp({ config, apiClient, wsClient, isOpen }) {
   var _a = useState(config.sessionId || ('restyle_' + Date.now())), sessionId = _a[0];
   var _b = useState(config.mediaId || null), mediaId = _b[0], setMediaId = _b[1];
   var _c = useState(null), mediaDetail = _c[0], setMediaDetail = _c[1];
@@ -243,7 +243,7 @@ function EmbedRestyleApp({ config, apiClient, wsClient }) {
 
   return isV2
     ? h(RestyleOverlayV2, {
-        isOpen: true,
+        isOpen: isOpen,
         onClose: handleClose,
         config: cfgMerged,
         apiClient: apiClient,
@@ -253,7 +253,7 @@ function EmbedRestyleApp({ config, apiClient, wsClient }) {
         mediaLoading: mediaLoading,
       })
     : h(RestyleOverlay, {
-        isOpen: true,
+        isOpen: isOpen,
         onClose: handleClose,
         config: cfgMerged,
         apiClient: apiClient,
@@ -269,7 +269,7 @@ function EmbedRestyleApp({ config, apiClient, wsClient }) {
 
 // ─── Widget V4 (Studio) wrapper ─────────────────────────────────────────────
 
-function EmbedV4App({ config }) {
+function EmbedV4App({ config, isOpen }) {
   var handleClose = useCallback(function () {
     postToParent('request-close');
   }, []);
@@ -279,7 +279,7 @@ function EmbedV4App({ config }) {
 
   return h(StudioModal, Object.assign({}, v4Opts, {
     styleMount: null,
-    isOpen: true,
+    isOpen: isOpen,
     onClose: handleClose,
   }));
 }
@@ -289,6 +289,7 @@ function EmbedV4App({ config }) {
 
 function EmbedRoot() {
   var _a = useState(null), config = _a[0], setConfig = _a[1];
+  var _b = useState(false), isOpen = _b[0], setIsOpen = _b[1];
   var apiRef = useRef(null);
   var wsRef = useRef(null);
 
@@ -348,7 +349,17 @@ function EmbedRoot() {
           break;
         }
 
+        case 'open':
+          setIsOpen(true);
+          break;
+
+        case 'close':
+          setIsOpen(false);
+          if (wsRef.current) wsRef.current.disconnect();
+          break;
+
         case 'destroy':
+          setIsOpen(false);
           setConfig(null);
           if (wsRef.current) { wsRef.current.disconnect(); wsRef.current = null; }
           apiRef.current = null;
@@ -369,7 +380,7 @@ function EmbedRoot() {
   var mode = normalizeMode(mergedConfig.mode);
 
   if (mode === 'widget-v4') {
-    return h(EmbedV4App, { config: mergedConfig });
+    return h(EmbedV4App, { config: mergedConfig, isOpen: isOpen });
   }
 
   if (mode === 'restyle') {
@@ -377,6 +388,7 @@ function EmbedRoot() {
       config: mergedConfig,
       apiClient: apiRef.current,
       wsClient: wsRef.current,
+      isOpen: isOpen,
     });
   }
 
@@ -384,6 +396,7 @@ function EmbedRoot() {
     config: mergedConfig,
     apiClient: apiRef.current,
     wsClient: wsRef.current,
+    isOpen: isOpen,
   });
 }
 
