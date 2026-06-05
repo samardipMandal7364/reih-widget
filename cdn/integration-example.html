@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>REimagineHome Widget — Integration Example</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+    h1 { color: #1a1a2e; }
+    pre { background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 14px; }
+    code { font-family: 'SF Mono', Menlo, monospace; }
+    .note { background: #e8f4fd; border-left: 4px solid #2196f3; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <h1>REimagineHome Widget — Integration Demo</h1>
+  <p>This page demonstrates the widget running via iframe CDN. Look at the bottom-right corner for the chat FAB.</p>
+
+  <div class="note">
+    <strong>Note:</strong> Replace <code>YOUR_CDN_URL</code> with the actual URL where you deploy the <code>cdn/</code> folder.
+  </div>
+
+  <h2>Integration Code</h2>
+  <pre><code>&lt;script&gt;
+  window.reihWidgetConfig = {
+    tenantId: 'YOUR_TENANT_ID',
+    mode: 'chat',              // 'chat' | 'restyle' | 'widget-v4'
+    embedBaseUrl: 'http://localhost:4000'  // where embed.html is hosted
+  };
+&lt;/script&gt;
+&lt;script src="http://localhost:4000/reih-loader.js" async&gt;&lt;/script&gt;</code></pre>
+
+  <!-- ═══ WIDGET INTEGRATION START ═══ -->
+  <script>
+    window.reihWidgetConfig = {
+      tenantId: 'demo-tenant',
+      mode: 'chat',
+      embedBaseUrl: window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '')
+    };
+  </script>
+  <script src="./reih-loader.js" async></script>
+  <!-- ═══ WIDGET INTEGRATION END ═══ -->
+</body>
+</html>

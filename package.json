@@ -13,7 +13,9 @@
   "scripts": {
     "dev": "rollup -c -w",
     "build": "rollup -c --environment BUILD:production",
+    "build:cdn": "bash build-cdn.sh",
     "serve": "npx serve . -l 3333",
+    "serve:cdn": "npx serve cdn -l 4000 --cors",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
