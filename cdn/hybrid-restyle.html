@@ -32,6 +32,12 @@
       padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
       font: 600 14px/1.4 system-ui, sans-serif; color: #fff; background: #6C63FF;
     }
+    .status {
+      margin-top: 16px; padding: 12px 16px; border-radius: 8px; font-size: 14px; line-height: 1.5;
+    }
+    .status--error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .status--ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .status--info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
   </style>
 </head>
 <body>
@@ -48,13 +54,37 @@
       <button class="cta" onclick="window.reihWidget.open()">Restyle with AI</button>
       <button class="cta" onclick="window.reihWidget.close()" style="background:#ef4444">Close</button>
     </div>
+
+    <div id="status" class="status status--info"></div>
   </div>
 
   <script>
-    var cdnBase = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
-    var params = new URLSearchParams(window.location.search);
+    var API_PRESETS = {
+      prod: {
+        apiBaseUrl: 'https://api.reimaginehome.ai/v3',
+        apiBaseUrlV2: 'https://api.reimaginehome.ai/v2',
+        wsBaseUrl: 'wss://ws.reimaginehome.ai/prod',
+      },
+      dev: {
+        apiBaseUrl: 'https://dev-api.reimaginehome.ai/v3',
+        apiBaseUrlV2: 'https://dev-api.reimaginehome.ai/v2',
+        wsBaseUrl: 'wss://bcbss17qsc.execute-api.us-west-2.amazonaws.com/dev',
+      },
+    };
 
-    function getParam() {
+    function readParams() {
+      var merged = new URLSearchParams(window.location.search);
+      var hash = window.location.hash.replace(/^#/, '');
+      if (hash) {
+        var hashParams = new URLSearchParams(hash);
+        hashParams.forEach(function (value, key) {
+          if (!merged.has(key)) merged.set(key, value);
+        });
+      }
+      return merged;
+    }
+
+    function getParam(params) {
       for (var i = 0; i < arguments.length; i++) {
         var raw = params.get(arguments[i]);
         if (raw != null && raw !== '') {
@@ -64,32 +94,58 @@
       return undefined;
     }
 
+    function setStatus(message, type) {
+      var el = document.getElementById('status');
+      el.textContent = message;
+      el.className = 'status status--' + (type || 'info');
+    }
+
+    var cdnBase = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
+    var params = readParams();
+    var apiEnv = getParam('apiEnv') || 'dev';
+    var preset = API_PRESETS[apiEnv] || API_PRESETS.dev;
+
     var tenantId = getParam('tenantId', 'clientId');
     var clientId = getParam('clientId', 'tenantId');
     var mediaId = getParam('mediaId');
     var bearerToken = getParam('bearerToken', 'token');
 
+    if (!mediaId || !bearerToken) {
+      setStatus(
+        'Missing required params: mediaId and bearerToken (or token). ' +
+        'For long JWTs, put the token in the URL hash instead of the query string.',
+        'error'
+      );
+    } else {
+      setStatus('Config loaded for mediaId ' + mediaId + ' using ' + apiEnv + ' API.', 'ok');
+    }
+
     window.reihWidgetConfig = {
-      tenantId: tenantId || 'demo-tenant',
+      tenantId: tenantId || clientId || 'demo-tenant',
       clientId: clientId || tenantId || 'demo-tenant',
       mode: 'restyle',
       hideTrigger: true,
       autoInit: true,
       autoOpen: false,
       primaryColor: '#6C63FF',
-      apiBaseUrl: getParam('apiBaseUrl') || 'https://api.reimaginehome.ai/v3',
-      apiBaseUrlV2: getParam('apiBaseUrlV2') || 'https://api.reimaginehome.ai/v2',
-      wsBaseUrl: getParam('wsBaseUrl') || 'wss://ws.reimaginehome.ai/prod',
+      apiBaseUrl: getParam('apiBaseUrl') || preset.apiBaseUrl,
+      apiBaseUrlV2: getParam('apiBaseUrlV2') || preset.apiBaseUrlV2,
+      wsBaseUrl: getParam('wsBaseUrl') || preset.wsBaseUrl,
       apiVersion: getParam('apiVersion') || 'v3',
       embedBaseUrl: cdnBase,
+      mediaId: mediaId,
+      bearerToken: bearerToken,
     };
-
-    if (mediaId) window.reihWidgetConfig.mediaId = mediaId;
-    if (bearerToken) window.reihWidgetConfig.bearerToken = bearerToken;
 
     window.addEventListener('reihwidget:media-loaded', function (e) {
       console.log('[demo] media loaded', e.detail);
       if (e.detail.url) document.getElementById('listing-img').src = e.detail.url;
+      setStatus('Media loaded successfully.', 'ok');
+    });
+
+    window.addEventListener('reihwidget:media-error', function (e) {
+      console.error('[demo] media error', e.detail);
+      setStatus('Media failed to load: ' + (e.detail && e.detail.message ? e.detail.message : 'Unknown error'), 'error');
     });
 
     window.addEventListener('reihwidget:ready', function (e) {

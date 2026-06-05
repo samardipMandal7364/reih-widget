@@ -140,6 +140,10 @@ function EmbedRestyleApp({ config, apiClient, wsClient }) {
   }, [config.bearerToken]);
 
   useEffect(function () {
+    if (config.mediaId && config.mediaId !== mediaId) setMediaId(config.mediaId);
+  }, [config.mediaId]);
+
+  useEffect(function () {
     if (!mediaId || !apiClient || !apiClient.getMedia) return;
     var cancelled = false;
     setMediaLoading(true);
@@ -154,10 +158,22 @@ function EmbedRestyleApp({ config, apiClient, wsClient }) {
             name: 'media-loaded',
             detail: { url: url, mediaId: mediaId, media: data },
           });
+        } else {
+          postToParent('event', {
+            name: 'media-error',
+            detail: {
+              message: 'Media loaded but no image URL was found in the response.',
+              mediaId: mediaId,
+            },
+          });
         }
       })
       .catch(function (err) {
         console.warn('[ReihEmbed] Failed to load media:', err.message);
+        postToParent('event', {
+          name: 'media-error',
+          detail: { message: err.message, mediaId: mediaId },
+        });
       })
       .finally(function () {
         if (!cancelled) setMediaLoading(false);
@@ -283,11 +299,25 @@ function EmbedRoot() {
           break;
         }
 
-        case 'configure':
+        case 'configure': {
+          var patch = d.payload || {};
           setConfig(function (prev) {
-            return prev ? Object.assign({}, prev, d.payload) : d.payload;
+            var next = prev ? Object.assign({}, prev, patch) : patch;
+            if (next.mode !== 'widget-v4' && (
+              patch.bearerToken != null ||
+              patch.apiBaseUrl != null ||
+              patch.apiBaseUrlV2 != null
+            )) {
+              apiRef.current = createApiClient({
+                apiBaseUrl: next.apiBaseUrl,
+                apiBaseUrlV2: next.apiBaseUrlV2,
+                bearerToken: next.bearerToken,
+              });
+            }
+            return next;
           });
           break;
+        }
 
         case 'destroy':
           setConfig(null);
